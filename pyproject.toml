@@ -1,0 +1,24 @@
+[build-system]
+requires = [
+  "setuptools>=61.0",
+  "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pansyncer"
+version = "0.3.0"
+description = "Synchronizes frequencies between FlRig (via rigctld) and GQRX. Reads input devices like external VFO-Knob (USB Volume Knob)."
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+  "evdev",
+  "termcolor"
+]
+
+[project.scripts]
+pansyncer = "pansyncer.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["pansyncer*"]

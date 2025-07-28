@@ -1,0 +1,94 @@
+# PanSyncer config file
+
+[main]                                                  ### Main Settings
+log_level                  = "INFO"                     # All modules without own logger instance log to main.
+logfile_path               = ""                         # Logging will go to display and optionally to logfile, too.
+
+daemon = false                                          ##### Run in background (no display)
+
+                                                        ##### Mode selection
+                                                        # (uncomment for iFreq mode, commented uses direct mode)
+#ifreq                      = 73.095                     # iFreq offset in MHz
+
+no_auto_rig                = false                      ###### Don't auto-start rigctld if true
+
+interval                   = 0.1                        # Main loop throttle (applied at select for input devices)
+
+[rigcheck]                                              ### Configure hamlib
+log_level                  = "INFO"                     # DEBUG will show reconnect info
+logfile_path               = ""
+                                                        ##### Full command to launch rigctld -t will be overwritten
+                                                        # if launched with  no_auto_rig = false.
+                                                        # 12345 is xmlprc port of FlRig
+hamlib_command             = "rigctld -m 4 -r 127.0.0.1:12345 -t 4532"
+hamlib_remote_ip           = "127.0.0.1"                # IP address where rigctld listens
+
+[devices]                                               ### Device config
+                                                        # Enabled devices at startup:
+                                                        # rig, gqrx, knob, mouse
+                                                        # keyboard will be injected if daemon = false
+enabled                    = ["rig", "gqrx", "knob", "mouse"]
+
+[sync]                                                  ### Sync config
+log_level                  = "INFO"                     # DEBUG will show the CAT communication
+logfile_path               = ""
+                                                        ### RIG and GQRX setting
+                                                        ## Rig settings
+rig_host                   = "127.0.0.1"                # Host (keep it local or secure your connection)
+rig_port                   = 4532                       ##### RIG Port
+rig_freq_query_interval    = 0.1                        # Freqency query limit (seconds)
+rig_socket_recon_interval  = 3.0                        # Socket is-alive check (seconds)
+rig_timeout                = 2.0                        # Response timeout (seconds)
+                                                        ## GQRX settings
+gqrx_host                  = "127.0.0.1"
+gqrx_port                  = 7356                       ##### GQRX Port
+gqrx_freq_query_interval   = 0.1
+gqrx_socket_recon_interval = 3.0
+gqrx_timeout               = 2.0
+
+                                                        ##### Frequency logging: Put a filename / path to enable
+freq_log_path              = ""                         # Specify filename and path to enable frequency logging
+wait_before_log_rigfreq    = 5.0                        # How long after last frequency change logging will occur (secs)
+
+                                                        # Sync & buffering
+sync_debounce_time         = 3.0                        # Direct mode, last-changed wins. Timeout for lead (seconds)
+nudge_buffer               = 10                         # Limit
+read_buffer_size           = 1024
+
+[display]                                               ### Display logging parameters
+log_drop_time = 10.0                                    # How long to keep log entries (seconds)
+input_drop_time = 1.0                                   # How long to show a single input indicator (seconds)
+log_lines = 5                                           # Number of log lines to display
+
+[reconnect_scheduler]                                   ### Reconnect Config
+reconnect_interval         = 3.0                        # Interval between reconnection attempts (seconds)
+max_workers                = 4                          # Maximum number of reconnect threads
+backoff_cap                = 60.0                       # Maximum backoff interval after repeated failures (seconds)
+jitter                     = 0.10                       # Random jitter fraction to apply to each interval (0.0–1.0)
+slow_threshold             = 1.0                        # Threshold for considering a task “slow” (seconds)
+
+
+[[knobs]]                                               ### Configure Knobs
+target_name    = "Wired KeyBoard Consumer Control"      # Device Identification
+target_vendor              = 0x05ac                     # Prefix 0x for hex value
+target_product             = 0x0202
+                                                        # Key mappings
+key_up                     = 115                        # ecodes.KEY_VOLUMEUP
+key_down                   = 114                        # ecodes.KEY_VOLUMEDOWN
+key_step                   = 113                        # ecodes.KEY_MUTE
+
+[[knobs]]
+target_name    = "LCTECH LCKEY"
+target_vendor              = 0x1189
+target_product             = 0x8890
+key_up                     = 115
+key_down                   = 114
+key_step                   = 113
+
+[[knobs]]
+target_name    = "HID 413d:553a"
+target_vendor              = 0x413d
+target_product             = 0x553a
+key_up                     = 115
+key_down                   = 114
+key_step                   = 113
