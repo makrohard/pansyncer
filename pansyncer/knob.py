@@ -125,10 +125,10 @@ class KnobController:
                         return dev
                     else:
                         #logger.log(f"Device {dev.name} ignored (missing key_up/down capabilities)", "DEBUG")
-                        pass
-
-                    logger.log(f"VFO-Knob found: {dev.name}", "DEBUG")
-                    return dev
+                        logger.log(
+                            f"Device {dev.name} ignored (missing key_up/down capabilities)",
+                            "DEBUG",
+                        )
             except OSError as e:
                 logger.log(f"Error accessing KNOB {path}: {e}", "WARN")
                 continue
