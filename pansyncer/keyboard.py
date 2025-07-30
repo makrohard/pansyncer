@@ -64,7 +64,7 @@ class KeyboardController:
                                                                                         # Help
         elif key == '?':
             self.logger.log("Change Frequency :  + / -, arrow keys, mouse or external VFO Knob", "INFO")
-            self.logger.log("Sync On / Off    :  0 / 1", "INFO")
+            self.logger.log("Sync On / Off    :  1 / 0", "INFO")
             self.logger.log("Change Step      :  Spacebar, middle mouse button or knob click", "INFO")
             self.logger.log("Toggle devices   :  r = Rig,  g = Gqrx, m = Mouse k = VFO Knob", "INFO")
             self.logger.log("Quit             :  q ", "INFO")
