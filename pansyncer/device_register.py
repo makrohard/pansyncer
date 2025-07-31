@@ -17,7 +17,7 @@ class DeviceRegisterConfig:
 class DeviceRegister:
     """Keeps track of enabled devices and notifies subscribers on changes."""
 
-    def __init__(self, cfg, initial=None, display=None, logger=None):
+    def __init__(self, cfg, initial=None, logger=None):
         self.cfg = cfg
         if initial is not None:
             devs = set(initial)
@@ -28,7 +28,6 @@ class DeviceRegister:
         self._devices = devs
         self._on_add = []
         self._on_remove = []
-        self.display = display
         self.logger = logger
 
 
@@ -69,7 +68,7 @@ class DeviceRegister:
         if dev in self.cfg.devices.radios and dev in self._devices:
             other = next(r for r in self.cfg.devices.radios if r != dev)
             if other not in self._devices:
-                if self.display and self.logger: self.logger.log(f"Cannot disable both {dev} and {other}", "ERROR")
+                if self.logger: self.logger.log(f"Cannot disable both {dev} and {other}", "ERROR")
                 return False
                                                                                                    # Perform the toggle
         if dev in self._devices:

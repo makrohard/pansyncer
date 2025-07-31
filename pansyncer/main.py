@@ -43,7 +43,6 @@ class PanSyncer:
             self.display = Display(self.cfg,
                                    self.devices,
                                    is_tty=self.is_tty)
-            self.devices.display = self.display
             atexit.register(self.display.cleanup)
 
         self.logger = Logger(name=__name__,                                             # User Interface Logger
