@@ -256,7 +256,7 @@ In order to synchronize GQRX initially in iFreq Mode, you will have to set the L
 * `Frequency` -> Set to 0
 * Check: All frequencies zeroed
 * Start PanSyncer in iFreq Mode: Use `--ifreq 73.095` with the intermediate frequency of your TRX. That will set
-the LO Frequency in GQRX accordingly)
+the LO Frequency in GQRX accordingly
 * `Frequency` -> Set to RIG frequency manually
 * Check `Receiver Options: Hardware freq` => This should now match the GQRX and RIG frequency
 * You are now in sync.
