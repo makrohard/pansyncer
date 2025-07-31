@@ -172,7 +172,7 @@ class Display:
 
     def set_mode(self, mode: str):
         """Set the mode label (e.g., 'iFreq' or 'Direct')."""
-        self._mode = mode[:]
+        self._mode = mode
 
     def set_ifreq(self, freq: int):
         """Set the intermediate frequency (Hz) to display."""
