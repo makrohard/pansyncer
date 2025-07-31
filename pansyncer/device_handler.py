@@ -6,7 +6,6 @@ Does periodic connection checks, and input event polling.
 """
 
 import time
-import sys
 import select
 import io
 import atexit
@@ -15,7 +14,7 @@ from pansyncer.rigcheck import RigChecker
 from pansyncer.keyboard import KeyboardController
 from pansyncer.mouse import MouseState
 from pansyncer.knob import KnobController
-from pansyncer. reconnect_scheduler import ReconnectScheduler
+from pansyncer.reconnect_scheduler import ReconnectScheduler
 
 
 class DeviceHandler:
