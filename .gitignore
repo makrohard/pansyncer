@@ -1,4 +1,6 @@
 .venv/
 .idea/
+/pansyncer/tmp
+/pansyncer/tmp.py
 __pycache__/
 *.py[cod]
