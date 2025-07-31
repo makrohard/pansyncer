@@ -15,6 +15,7 @@ External input devices like a USB Volume Knob, mouse or keyboard can be used to 
   * [User Interface](#user-interface)
   * [Daemon mode](#daemon-mode)
   * [rigctld handling](#rigctld-handling)
+  * [Frequency logging](#frequency-logging)
   * [Synchronization Modes](#synchronization-modes)
     * [Direct Mode](#direct-mode)
     * [Standalone Mode](#standalone-mode)
@@ -166,10 +167,10 @@ Rig has two connection statuses: Gray means "rigctld socket alive"; Green means 
 Pressing **?** shows help:
 
 ```
-[INFO] Change Frequency :  +/-, arrow keys, mouse or external VFO knob
-[INFO] Sync On / Off    :  0 / 1
-[INFO] Change Step      :  Spacebar or middle mouse button, or knob click
-[INFO] Toggle devices   :  r = Rig,  g = GQRX, m = Mouse k = VFO-Knob
+[INFO] Change Frequency :  + / -, arrow keys, mouse or external VFO Knob
+[INFO] Sync On / Off    :  1 / 0
+[INFO] Change Step      :  Spacebar, middle mouse button or knob click
+[INFO] Toggle devices   :  r = Rig,  g = Gqrx, m = Mouse k = VFO Knob
 [INFO] Quit             :  q 
 ```
 
@@ -203,7 +204,14 @@ If you prefer to start rigctld manually, use the `--no-auto-rig` argument, or se
 The rigctld command can be configured in the `pansyncer.toml` config file. You may want to do that.
 Default configuration is to use FLRig xmlrpc.
 
+### Frequency logging
 
+The frequency logger writes a line with a timestamp and the rig’s frequency to a file whenever the frequency changes.
+It briefly waits before doing so to avoid flooding the file. It can serve as a backup for the regular logging program
+if that program occasionally loses the CAT connection without being noticed. The frequency logger is disabled by default
+and can be enabled by specifying a filename.
+
+Do not confuse it with the program loggers, which can also write to a file for debugging purposes.
 
 ### Synchronization Modes
 
