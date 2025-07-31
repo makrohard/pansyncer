@@ -65,7 +65,7 @@ class RigChecker:
             self._reset_socket()
             return
         if not data:
-            self.logger.log(f"RIGCHECK SOCKET DIED", "WARNING")
+            self.logger.log("RIGCHECK SOCKET DIED", "WARNING")
             self._reset_socket()
 
         self.logger.log(f"RIGCHECK RECEIVED: {data}", "DEBUG")
@@ -84,8 +84,7 @@ class RigChecker:
             return
         if not self._is_port_open():
             if not self.auto_start:
-                self.logger.log(f"rigctld not running. Auto-Start disabled. Restart rigctld manually",
-                                "CRITICAL")
+                self.logger.log("rigctld not running. Auto-Start disabled. Restart rigctld manually","CRITICAL")
                 return True
 
             self.logger.log(f"Launching rigctld on port {self.port}", "INFO")

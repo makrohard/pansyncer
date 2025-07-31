@@ -22,3 +22,4 @@ pansyncer = "pansyncer.main:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["pansyncer*"]
+

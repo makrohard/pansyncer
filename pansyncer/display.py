@@ -271,4 +271,3 @@ class Display:
             if value != old:
                 super().__setattr__('_redraw', True)
         super().__setattr__(name, value)
-
