@@ -114,7 +114,7 @@ class DeviceHandler:
         stdin_fd = None
         if not self.cfg.main.daemon and self.is_tty and self.keyboard:
             try:
-                stdin_fd = sys.stdin.fileno()
+                stdin_fd = self.keyboard.get_fd()
                 fds.append(stdin_fd)
             except (io.UnsupportedOperation, ValueError) as e:
                 self.logger.log(f'stdin fd error: {e}', 'ERROR')
