@@ -50,7 +50,7 @@ class MouseState:
                 self.logger.log(f"Failed to close mouse device {e}", "WARN")
         self.mice.clear()
         if self.display: self.display.set_mouse(False)
-        self.logger.log(f"Mouse disabled", "INFO")
+        self.logger.log("Mouse disabled", "INFO")
 
     def get_fds(self):
         """Return a list of file descriptors to poll."""
