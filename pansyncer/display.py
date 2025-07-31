@@ -150,7 +150,7 @@ class Display:
             r = self._row_map['keyboard']
             self._frame_parts.append(f"\033[{r};{self._input_col}H{self._keyboard_input:<3}")
 
-        base_row = max(self._row_map.values()) + 1                                # Logs
+        base_row = max(self._row_map.values()) + 1 if self._row_map else 4         # Logs
         count = len(self._logs)
         for idx in range(self.cfg.display.log_lines):
             row = base_row + idx
