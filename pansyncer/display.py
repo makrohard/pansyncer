@@ -54,10 +54,15 @@ class Display:
         self._input_col = 17                                                            # UP/DWN/STP
         self._freq_col = 30                                                             # Frequency
         self._mode_col = self._freq_col - 6                                             # iFreq / Direct
-        self._header = ["\033[1;1H PanSyncer Control\033[K",
-                       "\033[2;1H Sync\033[K",
-                       "\033[3;1H Step\033[K"]
-        self._header = ''.join(self._header)
+        self.header_width = self._mode_col - 1
+        self._label_width  = self._status_col - 1
+        self._status_width = self._input_col - self._status_col
+        self._input_width  = self._freq_col - self._input_col
+        self._header = ''.join([
+            f"\033[1;1H{' PanSyncer Control':<{self.header_width}}",
+            f"\033[2;1H{' Sync':<{self._label_width}}",
+            f"\033[3;1H{' Step':<{self._label_width}}"])
+
         self._unit = " Hz"
         self._rig_freq = None                                                      # radio state
         self._rig_status = "\033[31mDIS\033[0m"
@@ -122,14 +127,18 @@ class Display:
             if self.devices.enabled(dev):
                 self._row_map[dev] = row
                 label = self.LABELS.get(dev, dev)
-                self._frame_parts.append(f"\033[{row};1H {label:<8}\033[K")
+                self._frame_parts.append(
+                    f"\033[{row};1H"
+                    f" {label:<{self._label_width - 1}}")
                 row += 1
 
         self._frame_parts.append(f"\033[1;{self._mode_col}H\033[38;5;75m{self._mode}\033[0m") # Mode label
 
         status = "ON " if self._sync_on else "OFF"                                # Sync status
         color = "32" if self._sync_on else "31"
-        self._frame_parts.append(f"\033[2;{self._status_col}H\033[K\033[{color}m{status}\033[0m")
+        self._frame_parts.append(
+            f"\033[2;{self._status_col}H"
+            f"\033[{color}m{status:<{self._status_width}}\033[0m")
 
         if self._ifreq is not None:                                               # iFreq
             self._draw_freq(2, self._ifreq, style="\033[38;5;75m")
