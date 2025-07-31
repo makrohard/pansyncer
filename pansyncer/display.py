@@ -4,7 +4,9 @@ ANSI terminal UI.
 """
 import sys
 import time
+import threading
 from dataclasses import dataclass
+from functools import wraps
 
 @dataclass
 class DisplayConfig:
@@ -12,6 +14,14 @@ class DisplayConfig:
     log_drop_time: float = 5.0
     input_drop_time: float = 1.0
     log_lines: int = 5
+
+def synchronized(method):
+    """Decorator to lock all calls to instance methods."""
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+    return wrapper
 
 class Display:
     """ User Interface """
@@ -33,7 +43,8 @@ class Display:
     }
 
     def __init__(self, cfg, devices, is_tty = False):
-        super().__setattr__('_redraw', True)# Redraw flag (overwrite __setattr__ to detect changes)
+        super().__setattr__('_redraw', True) # Redraw flag (overwrite __setattr__ to detect changes)
+        self._lock = threading.RLock()                     # Thread lock
         self.cfg = cfg
         self.devices = devices
         self._is_tty = is_tty
@@ -80,6 +91,7 @@ class Display:
             sys.stdout.write("\033[?25h\033[?1049l")
             sys.stdout.flush()
 
+    @synchronized
     def draw(self, now):
         """  Build one frame and print it """
         new_logs = [                                                               # Check time-based deletions
@@ -170,27 +182,33 @@ class Display:
         sys.stdout.write(self._frame)
         sys.stdout.flush()
 
+    @synchronized
     def set_mode(self, mode: str):
         """Set the mode label (e.g., 'iFreq' or 'Direct')."""
         self._mode = mode
 
+    @synchronized
     def set_ifreq(self, freq: int):
         """Set the intermediate frequency (Hz) to display."""
         self._ifreq = int(freq * 1_000_000)
 
+    @synchronized
     def set_sync_mode(self, on: bool):
         """Set Sync mode On/Off"""
         self._sync_on = on
 
+    @synchronized
     def set_step_value(self, step):
         """Set frequency increment"""
         self._step_value = step
 
+    @synchronized
     def set_rig_con(self, rig_connected):
         """Set rig connection status (CON in green)"""
         self._rig_connected = rig_connected
         self.set_rig(self._rig_freq, self._rigctld_connected)
 
+    @synchronized
     def set_rig(self, freq, rigctl_connected):
         """Set rig frequency and status"""
         self._rigctld_connected = rigctl_connected
@@ -203,34 +221,41 @@ class Display:
         else:                                                                     # rigctl disconnected
             self._rig_status = "\033[31mDIS\033[0m"
 
+    @synchronized
     def set_gqrx(self, freq, connected):
         """Set Gqrx frequency and status"""
         self._gqrx_freq = freq
         self._gqrx_status = "\033[32mCON\033[0m" if connected else "\033[31mDIS\033[0m"
 
+    @synchronized
     def set_knob(self, connected=True):
         """Set Knob status"""
         self._knob_connected = connected
 
+    @synchronized
     def set_mouse(self, connected: bool):
         """Set Mause status"""
         self._mouse_connected = connected
 
+    @synchronized
     def set_keyboard_input(self, text: str):
         """Set keyboard input indicator and timestamp for deletion"""
         self._keyboard_input = text[:3]
         self._keyboard_ts = time.monotonic()
 
+    @synchronized
     def set_mouse_input(self, text: str):
         """Set mouse input indicator and timestamp for deletion"""
         self._mouse_input = text[:3]
         self._mouse_ts = time.monotonic()
 
+    @synchronized
     def set_knob_input(self, text: str):
         """Set knob input indicator and timestamp for deletion"""
         self._knob_input = text[:3]
         self._knob_ts = time.monotonic()
 
+    @synchronized
     def log(self, text: str):
         """ log display """
         try:
@@ -263,11 +288,15 @@ class Display:
 
     def __setattr__(self, name, value):
         """ Sets the redraw flag if one of the watched attributes change"""
-        if name == '_redraw':
+        if name == '_lock':
             super().__setattr__(name, value)
             return
-        if name in self.WATCHED:
-            old = getattr(self, name, None)
-            if value != old:
-                super().__setattr__('_redraw', True)
-        super().__setattr__(name, value)
+        with self._lock:
+            if name == '_redraw':
+                super().__setattr__(name, value)
+                return
+            if name in self.WATCHED:
+                old = getattr(self, name, None)
+                if value != old:
+                    super().__setattr__('_redraw', True)
+            super().__setattr__(name, value)
