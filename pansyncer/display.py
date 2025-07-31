@@ -54,6 +54,7 @@ class Display:
         self._input_col = 17                                                            # UP/DWN/STP
         self._freq_col = 30                                                             # Frequency
         self._mode_col = self._freq_col - 6                                             # iFreq / Direct
+        self._first_device_row = 4
         self.header_width = self._mode_col - 1
         self._label_width  = self._status_col - 1
         self._status_width = self._input_col - self._status_col
@@ -62,7 +63,6 @@ class Display:
             f"\033[1;1H{' PanSyncer Control':<{self.header_width}}",
             f"\033[2;1H{' Sync':<{self._label_width}}",
             f"\033[3;1H{' Step':<{self._label_width}}"])
-
         self._unit = " Hz"
         self._rig_freq = None                                                      # radio state
         self._rig_status = "\033[31mDIS\033[0m"
@@ -99,6 +99,7 @@ class Display:
     @synchronized
     def draw(self, now):
         """  Build one frame and print it """
+        old_base = (max(self._row_map.values()) + 1) if self._row_map else self._first_device_row # Remember log base row
         new_logs = [                                                               # Check time-based deletions
             (msg, ts)
             for (msg, ts) in self._logs
@@ -121,16 +122,26 @@ class Display:
         self._frame_parts.clear()                                                  # start new frame
         self._frame_parts.append("\033[H")                                         # move cursor to home
         self._frame_parts.append(self._header)                                     # draw header
-        self._row_map.clear()                                                      # rebuild row map for device rows
-        row = 4
-        for dev in ['rig', 'gqrx', 'knob', 'mouse', 'keyboard']:
-            if self.devices.enabled(dev):
-                self._row_map[dev] = row
-                label = self.LABELS.get(dev, dev)
+
+        old_count = len(self._row_map)                                             # clear if row count changed
+        new_count = sum(1 for dev in self.LABELS if self.devices.enabled(dev))
+        if new_count != old_count:
+            for r in range(self._first_device_row + min(old_count, new_count),
+                           self._first_device_row + max(old_count, new_count)):
+                self._frame_parts.append(f"\033[{r};1H\033[K")
+            for r in range(self._first_device_row, self._first_device_row + new_count):
                 self._frame_parts.append(
-                    f"\033[{row};1H"
-                    f" {label:<{self._label_width - 1}}")
-                row += 1
+                    f"\033[{r};{self._status_col}H{'':{self._status_width}}"
+                    f"\033[{r};{self._input_col}H{'':{self._input_width}}")
+
+        self._row_map.clear()                                                      # rebuild row map for device rows
+        for row, (dev, label) in enumerate(
+                (item for item in self.LABELS.items() if self.devices.enabled(item[0])),
+                start=self._first_device_row
+            ):
+            self._row_map[dev] = row
+            self._frame_parts.append(
+                f"\033[{row};1H {label:<{self._label_width - 1}}")
 
         self._frame_parts.append(f"\033[1;{self._mode_col}H\033[38;5;75m{self._mode}\033[0m") # Mode label
 
@@ -169,9 +180,14 @@ class Display:
 
         if self.devices.enabled('keyboard'):                                       # Keyboard
             r = self._row_map['keyboard']
+            self._frame_parts.append(f"\033[{r};{self._status_col}H{'':<{self._status_width}}")
             self._frame_parts.append(f"\033[{r};{self._input_col}H{self._keyboard_input:<3}")
 
-        base_row = max(self._row_map.values()) + 1 if self._row_map else 4         # Logs
+        base_row = max(self._row_map.values()) + 1 if self._row_map else self._first_device_row   # Logs
+        if base_row > old_base:                                                    # Clear on log pushdown (device add)
+            for clear_row in range(old_base, base_row):
+                if clear_row not in self._row_map.values():
+                    self._frame_parts.append(f"\033[{clear_row};1H\033[K")
         count = len(self._logs)
         for idx in range(self.cfg.display.log_lines):
             row = base_row + idx
