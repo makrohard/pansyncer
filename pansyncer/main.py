@@ -25,8 +25,6 @@ VERSION = '0.3.1'
 class PanSyncer:
     """ PanSyncer Application Class"""
 
-    VERSION = '0.3.0'
-
     def __init__(self, cfg: Config):
         self.cfg = cfg
         self.devices = DeviceRegister(self.cfg)                                         # Register devices
