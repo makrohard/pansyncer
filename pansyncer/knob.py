@@ -55,9 +55,10 @@ class KnobController:
         try:
             self.dev.ungrab()
             self.logger.log("Ungrabbed device KNOB ", "DEBUG")
+            self.dev.close()
         except OSError as e:
             self.logger.log(f"Failed to ungrab device KNOB {e}", "DEBUG")
-            self.dev = None
+        self.dev = None
 
         if self.display: self.display.set_knob(False)
         self.active_cfg = None
