@@ -55,12 +55,12 @@ class Display:
         self._freq_col = 30                                                             # Frequency
         self._mode_col = self._freq_col - 6                                             # iFreq / Direct
         self._first_device_row = 4
-        self.header_width = self._mode_col - 1
+        self._header_width = self._mode_col - 1
         self._label_width  = self._status_col - 1
         self._status_width = self._input_col - self._status_col
         self._input_width  = self._freq_col - self._input_col
         self._header = ''.join([
-            f"\033[1;1H{' PanSyncer Control':<{self.header_width}}",
+            f"\033[1;1H{' PanSyncer Control':<{self._header_width}}",
             f"\033[2;1H{' Sync':<{self._label_width}}",
             f"\033[3;1H{' Step':<{self._label_width}}"])
         self._unit = " Hz"
