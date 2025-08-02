@@ -7,6 +7,7 @@ Keyboard, Mouse or External VFO-Knob can be used to change frequency
 
 import time
 import argparse
+from argparse import RawTextHelpFormatter
 import sys
 import tty
 import termios
@@ -137,17 +138,18 @@ class PanSyncer:
     def parse_args():
         """Parse and return the application’s command‐line arguments."""
         parser = argparse.ArgumentParser(
-            description=f"PanSyncer {VERSION} – Sync your Rig and GQRX. Tune via keyboard, mouse, or external VFO knob")
+            formatter_class=RawTextHelpFormatter,
+            description=f"PanSyncer {VERSION} – Sync your Rig and Gqrx. Tune via keyboard, mouse, or external VFO knob.")
         parser.add_argument("-d", "--devices", nargs="+",
             choices=["r", "g", "k", "m", "rig", "gqrx", "knob", "mouse"],
             help="Devices to enable: r=rig, g=gqrx, k=knob, m=mouse")
         parser.add_argument("-r", "--rig-port", type=int,
             help="rigctld port (default: 4532)")
         parser.add_argument("-g", "--gqrx-port", type=int,
-            help="GQRX port (default: 7356)")
+            help="Gqrx port (default: 7356)")
         parser.add_argument("-f", "--ifreq", type=float,
-            help=("IFreq Mode: param offset in MHz e.g. --ifreq 73.095"
-                  "Changes LO for hardware-coupled pansyncer frequency"
+            help=("IFreq Mode: param offset in MHz e.g. --ifreq 73.095\n"
+                  "Changes LO for hardware-coupled pansyncer frequency\n"
                   "If not specified, Direct Mode is used: Bidirectional freq-sync."))
         parser.add_argument("-n", "--no-auto-rig", action="store_true",
             help="Require rigctld already running; do not auto-start")
@@ -157,7 +159,7 @@ class PanSyncer:
             help="Disable inputs and graphical display")
         parser.add_argument('-c', '--config-file',
             default='pansyncer.toml',
-            help='Path to TOML config (default: pansyncer.toml)')
+            help='Path to TOML config file (default: pansyncer.toml)')
         parser.add_argument("-v", "--version", action="version", version=f"PanSyncer v{VERSION}",
             help="Show program version and exit")
         return parser.parse_args()

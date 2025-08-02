@@ -1,5 +1,8 @@
 # PanSyncer config file
 
+# Five hashes ##### mark, where you really want to look at.
+# Knob parameters are at the end of this file.
+
 [main]                                                  ### Main Settings
 log_level                  = "INFO"                     # All modules without own logger instance log to main.
 logfile_path               = ""                         # Logging will go to display and optionally to logfile, too.
@@ -17,7 +20,7 @@ interval                   = 0.1                        # Main loop throttle (ap
 [rigcheck]                                              ### Configure hamlib
 log_level                  = "INFO"                     # DEBUG will show reconnect info
 logfile_path               = ""
-                                                        ##### Full command to launch rigctld -t will be overwritten
+                                                        ##### Full command to launch rigctld. -t will be overwritten
                                                         # if launched with  no_auto_rig = false.
                                                         # 12345 is xmlprc port of FlRig
 hamlib_command             = "rigctld -m 4 -r 127.0.0.1:12345 -t 4532"
@@ -25,14 +28,14 @@ hamlib_remote_ip           = "127.0.0.1"                # IP address where rigct
 
 [devices]                                               ### Device config
                                                         # Enabled devices at startup:
-                                                        # rig, gqrx, knob, mouse
+                                                        # ["rig", "gqrx", "knob", "mouse"]
                                                         # keyboard will be injected if daemon = false
 enabled                    = ["rig", "gqrx", "knob", "mouse"]
 
 [sync]                                                  ### Sync config
 log_level                  = "INFO"                     # DEBUG will show the CAT communication
 logfile_path               = ""
-                                                        ### RIG and GQRX setting
+                                                        ### RIG and GQRX settings
                                                         ## Rig settings
 rig_host                   = "127.0.0.1"                # Host (keep it local or secure your connection)
 rig_port                   = 4532                       ##### RIG Port
@@ -46,7 +49,7 @@ gqrx_freq_query_interval   = 0.1
 gqrx_socket_recon_interval = 3.0
 gqrx_timeout               = 2.0
 
-                                                        ##### Frequency logging: Put a filename / path to enable
+                                                        ##### Frequency logging
 freq_log_path              = ""                         # Specify filename and path to enable frequency logging
 wait_before_log_rigfreq    = 5.0                        # How long after last frequency change logging will occur (secs)
 

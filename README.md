@@ -1,7 +1,33 @@
 # PanSyncer
 
-PanSyncer is designed to synchronize the frequencies of a ham radio transceiver and an SDR receiver using GQRX.
+PanSyncer is designed to synchronize the frequencies of a ham radio transceiver and an SDR receiver using Gqrx.
 External input devices like a USB Volume Knob, mouse or keyboard can be used to tune the frequency.
+
+## Quickstart
+
+* If you plan to use rigctld, install the `hamlib` package from your distributor. For ubuntu it's: `libhamlib-utils`.
+
+* **Install**  
+  ```
+  git clone https://github.com/makrohard/pansyncer.git
+  cd pansyncer
+  pip install --user .
+  ```
+* **Run** in a terminal
+  ```
+  pansyncer
+  ```
+* Edit **config** file `pansyncer.toml`  
+or use command line arguments `pansyncer --help`
+
+* Once running, press **?** for **help** on commands:
+  ```
+  Sync On / Off    :  1 / 0
+  Toggle devices   :  r = Rig,  g = Gqrx, m = Mouse, k = VFO Knob
+  Quit             :  q 
+  ```
+
+
 
 ## Table of Contents  
 
@@ -170,7 +196,7 @@ Pressing **?** shows help:
 [INFO] Change Frequency :  + / -, arrow keys, mouse or external VFO Knob
 [INFO] Sync On / Off    :  1 / 0
 [INFO] Change Step      :  Spacebar, middle mouse button or knob click
-[INFO] Toggle devices   :  r = Rig,  g = Gqrx, m = Mouse k = VFO Knob
+[INFO] Toggle devices   :  r = Rig,  g = Gqrx, m = Mouse, k = VFO Knob
 [INFO] Quit             :  q 
 ```
 
