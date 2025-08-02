@@ -75,7 +75,6 @@ class Config:
                 setattr(cfg.sync, key, val)
                                                                                         # overlay devices from args
         if args.devices is not None:
-            from pansyncer.device_register import DeviceRegisterConfig
             map_ = DeviceRegisterConfig().device_map
             cfg.devices.enabled = [map_.get(d, d) for d in args.devices]
 
