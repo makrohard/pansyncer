@@ -15,6 +15,7 @@ import atexit
 from dataclasses import dataclass
 from typing import Optional
 from pansyncer.logger import Logger
+from pansyncer.bands import Bands
 
 @dataclass
 class SyncConfig:
@@ -168,6 +169,7 @@ class SyncManager:
         self._log_rig_change(self.cfg.sync.wait_before_log_rigfreq, now)                # Log Frequency
         self._apply_sync_actions(now)                                                   # Apply sync actions
         self._update_sync_state()                                                       # Update sync state (On/Off)
+        self._update_band()                                                             # Update band name
         self._update_ui()                                                               # Update display
 
     def nudge(self, delta_hz):
@@ -283,6 +285,26 @@ class SyncManager:
         else:
             if self._wanted_sync and not self.sync_on:
                 self.sync_on = True
+
+    def _update_band(self):
+        """Update band information if either frequency has changed."""
+        if self.display is None:
+            return
+
+        rig = self.radio['rig']
+        gqrx = self.radio['gqrx']
+        rig_changed = rig['freq_cur'] != rig['freq_prev']
+        gqrx_changed = gqrx['freq_cur'] != gqrx['freq_prev']
+
+        if not (rig_changed or gqrx_changed):
+            return
+
+        freq_hz = rig['freq_cur'] or gqrx['freq_cur']
+        if freq_hz is None:
+            return
+
+        band_name = Bands().band_name(freq_hz / 1_000_000)
+        self.display.set_band_name(band_name)
 
     def _apply_sync_actions(self, now):
         """ Perform synchronization actions """

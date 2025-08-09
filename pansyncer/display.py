@@ -32,7 +32,7 @@ class Display:
         '_knob_connected', '_mouse_connected',
         '_keyboard_input', '_mouse_input', '_knob_input',
         '_sync_on', '_step_value', '_logs',
-        '_rigctld_connected', '_rig_connected'
+        '_rigctld_connected', '_rig_connected', '_band_name'
     }
     LABELS = {
         'rig': 'Rig',
@@ -75,10 +75,11 @@ class Display:
         self._keyboard_input = "   "                                               # inputs
         self._mouse_input = "   "
         self._knob_input = "   "
-        self._sync_on = False                                                      # sync, step, mode
+        self._sync_on = False                                                      # sync, step, mode, band
         self._step_value = 100
         self._mode = ""
         self._ifreq = None
+        self._band_name = "    "
         self._logs = []                                                            # logs
         self._last_log_end_row = 0
         self._keyboard_ts = 0.0                                                    # timestamps for auto-clear
@@ -178,10 +179,12 @@ class Display:
             self._frame_parts.append(f"\033[{r};{self._status_col}H\033[{color}m{'CON' if self._mouse_connected else 'DIS'}\033[0m")
             self._frame_parts.append(f"\033[{r};{self._input_col}H{self._mouse_input:<3}")
 
-        if self.devices.enabled('keyboard'):                                       # Keyboard
-            r = self._row_map['keyboard']
-            self._frame_parts.append(f"\033[{r};{self._status_col}H{'':<{self._status_width}}")
-            self._frame_parts.append(f"\033[{r};{self._input_col}H{self._keyboard_input:<3}")
+
+        r = self._row_map['keyboard']                                              # Keyboard (always enabled)
+        self._frame_parts.append(f"\033[{r};{self._status_col}H{'':<{self._status_width}}")
+        self._frame_parts.append(f"\033[{r};{self._input_col}H{self._keyboard_input:<3}")
+        col = self._freq_col - len(self._band_name)                                # Band name
+        self._frame_parts.append(f"\033[{r};{col}H{self._band_name}")
 
         base_row = max(self._row_map.values()) + 1 if self._row_map else self._first_device_row   # Logs
         if base_row > old_base:                                                    # Clear on log pushdown (device add)
@@ -267,6 +270,11 @@ class Display:
         """Set keyboard input indicator and timestamp for deletion"""
         self._keyboard_input = text[:3]
         self._keyboard_ts = time.monotonic()
+
+    @synchronized
+    def set_band_name(self, name: str):
+        """Set the band label"""
+        self._band_name = (name or "").rjust(4)[:4]
 
     @synchronized
     def set_mouse_input(self, text: str):
