@@ -13,6 +13,7 @@ from pansyncer.display import DisplayConfig
 from pansyncer.knob import KnobConfig
 from pansyncer.rigcheck import RigCheckConfig
 from pansyncer.reconnect_scheduler import SchedulerConfig
+from pansyncer.bands import Band, DEFAULT_BANDS
 
 @dataclass
 class MainConfig:
@@ -41,6 +42,7 @@ class Config:
         self.knobs = knob or [KnobConfig()]
         self.rigcheck = rigcheck or RigCheckConfig()
         self.reconnect_scheduler = reconnect_scheduler or SchedulerConfig()
+        self.bands = list(DEFAULT_BANDS)
 
     @classmethod
     def from_args_and_file(cls, args):
@@ -65,6 +67,11 @@ class Config:
         cfg.knobs = []
         for entry in data.get('knobs', []):                                             # Read knobs definition
             cfg.knobs.append(KnobConfig(**entry))
+                                                                                        # Read bands
+            tbl = data.get("bands") or {}
+            region = tbl.get("region")
+            entries = tbl.get(region)
+            cfg.bands = [Band(**e) for e in entries] if isinstance(entries, list) else list(DEFAULT_BANDS)
                                                                                         # overlay CLI args
         for key, val in vars(args).items():
             if val is None:

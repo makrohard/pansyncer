@@ -1,7 +1,6 @@
 # PanSyncer config file
 
-# Five hashes ##### mark, where you really want to look at.
-# Knob parameters are at the end of this file.
+# Search for five hashes ##### mark, that is where you really want to look at.
 
 [main]                                                  ### Main Settings
 log_level                  = "INFO"                     # All modules without own logger instance log to main.
@@ -13,7 +12,7 @@ daemon = false                                          ##### Run in background 
                                                         # (uncomment for iFreq mode, commented uses direct mode)
 #ifreq                      = 73.095                     # iFreq offset in MHz
 
-no_auto_rig                = false                      ###### Don't auto-start rigctld if true
+no_auto_rig                = false                      #####  Don't auto-start rigctld if true
 
 interval                   = 0.1                        # Main loop throttle (applied at select for input devices)
 
@@ -70,8 +69,69 @@ backoff_cap                = 60.0                       # Maximum backoff interv
 jitter                     = 0.10                       # Random jitter fraction to apply to each interval (0.0–1.0)
 slow_threshold             = 1.0                        # Threshold for considering a task “slow” (seconds)
 
+[bands]
+region = "r1"                                           ##### IARU Region -  choose: r1 | r2 | r3 | r3_jp
 
-[[knobs]]                                               ### Configure Knobs
+r1 = [
+  { name = "160m", start = 1.810,  goto = 1.843,  end = 2.000 },
+  { name = " 80m", start = 3.500,  goto = 3.603,  end = 3.800 },
+  { name = " 60m", start = 5.3515, goto = 5.354,  end = 5.3665 },
+  { name = " 40m", start = 7.000,  goto = 7.053,  end = 7.200 },
+  { name = " 30m", start = 10.100, goto = 10.130, end = 10.150 },
+  { name = " 20m", start = 14.000, goto = 14.125, end = 14.350 },
+  { name = " 17m", start = 18.068, goto = 18.120, end = 18.168 },
+  { name = " 15m", start = 21.000, goto = 21.151, end = 21.450 },
+  { name = " 12m", start = 24.890, goto = 24.940, end = 24.990 },
+  { name = " 10m", start = 28.000, goto = 28.320, end = 29.700 },
+  { name = "  6m", start = 50.000, goto = 50.100, end = 52.000 }
+]
+r2 = [
+  { name = "160m", start = 1.800,  goto = 1.840,  end = 2.000 },
+  { name = " 80m", start = 3.500,  goto = 3.600,  end = 4.000 },
+  { name = " 60m", start = 5.3515, goto = 5.354,  end = 5.3665 },
+  { name = " 40m", start = 7.000,  goto = 7.060,  end = 7.300 },
+  { name = " 30m", start = 10.100, goto = 10.130, end = 10.150 },
+  { name = " 20m", start = 14.000, goto = 14.112, end = 14.350 },
+  { name = " 17m", start = 18.068, goto = 18.120, end = 18.168 },
+  { name = " 15m", start = 21.000, goto = 21.151, end = 21.450 },
+  { name = " 12m", start = 24.890, goto = 24.940, end = 24.990 },
+  { name = " 10m", start = 28.000, goto = 28.320, end = 29.700 },
+  { name = "  6m", start = 50.000, goto = 50.100, end = 54.000 }
+]
+r3 = [
+  { name = "160m", start = 1.800,  goto = 1.840,  end = 2.000 },
+  { name = " 80m", start = 3.500,  goto = 3.600,  end = 3.900 },
+  { name = " 60m", start = 5.3515, goto = 5.354,  end = 5.3665 },
+  { name = " 40m", start = 7.000,  goto = 7.060,  end = 7.200 },
+  { name = " 30m", start = 10.110, goto = 10.130, end = 10.150 },
+  { name = " 20m", start = 14.000, goto = 14.112, end = 14.350 },
+  { name = " 17m", start = 18.068, goto = 18.120, end = 18.168 },
+  { name = " 15m", start = 21.000, goto = 21.151, end = 21.450 },
+  { name = " 12m", start = 24.890, goto = 24.940, end = 24.990 },
+  { name = " 10m", start = 28.000, goto = 28.320, end = 29.700 },
+  { name = "  6m", start = 50.000, goto = 50.100, end = 54.000 }
+]
+r3_jp = [
+  { name = "160m-A", start = 1.800,  goto = 1.845,  end = 1.875 },
+  { name = "160m-B", start = 1.9075, goto = 1.9075, end = 1.9125 },
+  { name = " 80m-A", start = 3.530,  goto = 3.530,  end = 3.580 },
+  { name = " 80m-B", start = 3.599,  goto = 3.599,  end = 3.612 },
+  { name = " 80m-C", start = 3.662,  goto = 3.662,  end = 3.680 },
+  { name = " 80m-D", start = 3.680,  goto = 3.680,  end = 3.687 },
+  { name = " 80m-E", start = 3.702,  goto = 3.702,  end = 3.716 },
+  { name = " 80m-F", start = 3.745,  goto = 3.745,  end = 3.770 },
+  { name = " 80m-G", start = 3.791,  goto = 3.791,  end = 3.805 },
+  { name = " 40m",   start = 7.000,  goto = 7.030,  end = 7.200 },
+  { name = " 30m",   start = 10.100, goto = 10.120, end = 10.150 },
+  { name = " 20m",   start = 14.000, goto = 14.100, end = 14.350 },
+  { name = " 17m",   start = 18.068, goto = 18.110, end = 18.168 },
+  { name = " 15m",   start = 21.000, goto = 21.150, end = 21.450 },
+  { name = " 12m",   start = 24.890, goto = 24.930, end = 24.990 },
+  { name = " 10m",   start = 28.000, goto = 28.200, end = 29.700 },
+  { name = "  6m",   start = 50.000, goto = 50.070, end = 54.000 }
+]
+
+[[knobs]]                                               ##### Configure Knobs
 target_name    = "Wired KeyBoard Consumer Control"      # Device Identification
 target_vendor              = 0x05ac                     # Prefix 0x for hex value
 target_product             = 0x0202
