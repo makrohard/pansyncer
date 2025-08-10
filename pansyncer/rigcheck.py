@@ -61,7 +61,7 @@ class RigChecker:
         try:                                                                            # Read socket
             data = self._sock.recv(1024)
         except OSError as e:
-            self.logger.log(f"RIGCHECK RECV ERROR {e}", "WARNING")
+            self.logger.log(f"RIGCHECK RECV ERROR {e}", "DEBUG")
             self._reset_socket()
             return
         if not data:
