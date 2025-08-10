@@ -60,7 +60,7 @@ read_buffer_size           = 1024
 [display]                                               ### Display logging parameters
 log_drop_time = 10.0                                    # How long to keep log entries (seconds)
 input_drop_time = 1.0                                   # How long to show a single input indicator (seconds)
-log_lines = 5                                           # Number of log lines to display
+log_lines = 6                                           # Number of log lines to display
 
 [reconnect_scheduler]                                   ### Reconnect Config
 reconnect_interval         = 3.0                        # Interval between reconnection attempts (seconds)

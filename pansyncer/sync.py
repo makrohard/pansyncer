@@ -187,6 +187,64 @@ class SyncManager:
         except (KeyError, AttributeError, TypeError) as e:
             self.logger.log(f"[NUDGE ERROR]: {e}", "CRITICAL")
 
+    def get_frequency(self):
+        """Return current main frequency."""
+        try:
+            rig = self.radio['rig']
+            gqrx = self.radio['gqrx']
+
+            if rig['freq_cur'] is not None:
+                return rig['freq_cur']
+
+            if gqrx['freq_cur'] is not None:
+                if self.ifreq is not None:
+                    return gqrx['freq_cur'] + abs(int(self.ifreq * 1e6))
+                return gqrx['freq_cur']
+            return None
+        except (KeyError, TypeError) as e:
+            self.logger.log(f"SYNC GET FREQ ERROR {e}", "ERROR")
+            return None
+
+    def set_frequency(self, freq_hz, role=None):
+        """Set absolute frequency (Hz)."""
+        try:
+            freq_hz = int(round(freq_hz)) if isinstance(freq_hz, float) else int(freq_hz)
+
+            if self.ifreq is not None:
+                tgt = 'rig'
+            elif role in self.radio:
+                tgt = role
+            else:
+                rig_ok = (self.radio['rig']['sock'] is not None) and self.devices.enabled('rig')
+                gqx_ok = (self.radio['gqrx']['sock'] is not None) and self.devices.enabled('gqrx')
+                tgt = 'rig' if rig_ok else ('gqrx' if gqx_ok else None)
+            rdo = self.radio[tgt]
+
+            rdo['freq_delta'] = rdo['freq_delta_sent'] = 0
+            rdo['freq_sent'] = freq_hz
+            rdo['command'] = self._build_cat_cmd(freq_hz)
+            return True
+        except (ValueError, TypeError, KeyError) as e:
+            self.logger.log(f"SYNC SET FREQ ERROR {e}", "ERROR")
+            return False
+
+    def band_step(self, direction):
+        """Step to next or previous band."""
+        try:
+            cur = self.get_frequency()
+            if cur is None:
+                return False
+            bands = Bands()
+            freq_mhz = cur / 1_000_000
+            goto_mhz = bands.next_band(freq_mhz) if direction > 0 else bands.prev_band(freq_mhz)
+            if not goto_mhz:
+                return False
+
+            return self.set_frequency(int(round(goto_mhz * 1_000_000)))
+        except (TypeError, ValueError, KeyError) as e:
+            self.logger.log(f"[BAND STEP ERROR] {e}", "DEBUG")
+            return False
+
     def set_sync_mode(self, state):
         """Enable or disable synchronization on user request"""
         self._wanted_sync = state

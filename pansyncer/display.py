@@ -13,7 +13,7 @@ class DisplayConfig:
     """Default configuration"""
     log_drop_time: float = 5.0
     input_drop_time: float = 1.0
-    log_lines: int = 5
+    log_lines: int = 6
 
 def synchronized(method):
     """Decorator to lock all calls to instance methods."""

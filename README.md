@@ -197,6 +197,7 @@ Pressing **?** shows help:
 [INFO] Sync On / Off    :  1 / 0
 [INFO] Change Step      :  Spacebar, middle mouse button or knob click
 [INFO] Toggle devices   :  r = Rig,  g = Gqrx, m = Mouse, k = VFO Knob
+[INFO] Change Band      :  w = Up,  s = Down
 [INFO] Quit             :  q 
 ```
 

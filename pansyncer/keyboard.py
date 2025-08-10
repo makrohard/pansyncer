@@ -67,9 +67,10 @@ class KeyboardController:
             self.logger.log("Sync On / Off    :  1 / 0", "INFO")
             self.logger.log("Change Step      :  Spacebar, middle mouse button or knob click", "INFO")
             self.logger.log("Toggle devices   :  r = Rig,  g = Gqrx, m = Mouse, k = VFO Knob", "INFO")
+            self.logger.log("Change Band      :  w = Up,  s = Down", "INFO")
             self.logger.log("Quit             :  q ", "INFO")
 
-        # Switch sync ON
+                                                                                        # Switch sync ON
         elif key == '1':
 
             if (self.sync.radio['rig']['sock'] is not None and self.devices.enabled('rig')
@@ -124,6 +125,14 @@ class KeyboardController:
             self.devices.toggle('mouse')
             state = 'ENABLED' if self.devices.enabled('mouse') else 'DISABLED'
             self.logger.log(f"[DEVICE] MOUSE {state}", "DEBUG")
+                                                                                        # Band up
+        elif key.upper() == 'W':
+            self.sync.band_step(1)
+            self.logger.log("Band up", "INFO")
+                                                                                        # Band down
+        elif key.upper() == 'S':
+            self.sync.band_step(-1)
+            self.logger.log("Band down", "INFO")
                                                                                         # Quit command
         elif key.upper() == 'Q':
             return 'quit'
