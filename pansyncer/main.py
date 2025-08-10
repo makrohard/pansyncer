@@ -79,6 +79,7 @@ class PanSyncer:
 
         self.old_term = None                                                           # Setup Terminal
         self._setup_terminal()
+        if self.is_tty: self.logger.log("Welcome to PanSyncer, press \033[1m?\033[0m for help.", "INFO")
 
     def main_loop(self):                                                               ##### MAIN LOOP #####
         """Main loop, handling device input, display, and sync."""
