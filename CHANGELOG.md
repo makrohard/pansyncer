@@ -1,10 +1,14 @@
 # Changelog
 
+## 0.4.1
+- Added small display functionality
+- Minor bug fixes
+- 
 ## 0.4.0
 - Added Bands functionality
 
 ## 0.3.1
-- Minor bug fixes  
+- Minor bug fixes
 - Added thread-safety to `Display` (synchronized setters)  
 - Eliminated UI flicker
 
