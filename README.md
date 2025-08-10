@@ -5,29 +5,50 @@ External input devices like a USB Volume Knob, mouse or keyboard can be used to 
 
 ## Quickstart
 
-* If you plan to use rigctld, install the `hamlib` package from your distributor. For ubuntu it's: `libhamlib-utils`.
+Essential steps to get PanSyncer up and running.
 
-* **Install**  
+### Requirements
+
+PanSyncer is a command-line tool for Linux. It requires a reasonably recent version of Python.
+
+The default configuration assumes that you have [FLRig](https://github.com/w1hkj/flrig)
+and [Gqrx](https://github.com/gqrx-sdr/gqrx) installed. Most Linux distributions provide packages for them.
+
+
+For the radio communication, `rigctld` is used. Install the `hamlib` package from your distributor.
+For Ubuntu, install `libhamlib-utils`.
+
+### Install 
   ```
   git clone https://github.com/makrohard/pansyncer.git
   cd pansyncer
   pip install --user .
   ```
-* **Run** in a terminal
+### Configuration
+Edit **config** file `pansyncer.toml` or use command line arguments `pansyncer --help`.  
+
+The default config runs in direct mode. To use iFreq mode, specify your intermediate frequency, for example:
+`pansyncer --ifreq 70.095`
+
+### Run in a terminal
   ```
   pansyncer
   ```
-* Edit **config** file `pansyncer.toml`  
-or use command line arguments `pansyncer --help`
+### Commands
+Once running, press **?** for **help** on commands:
+```
+Sync On / Off    :  1 / 0
+Toggle devices   :  r = Rig,  g = Gqrx, m = Mouse, k = VFO Knob
+[...]
+Quit             :  q 
+```
+  
+### Connect radios
+Provide FLRig (using Xmlrpc) and Gqrx (with remote control enabled). They should connect automatically. If not:
+Check the ports and the rigctld command in the config file `pansyncer.toml`
 
-* Once running, press **?** for **help** on commands:
-  ```
-  Sync On / Off    :  1 / 0
-  Toggle devices   :  r = Rig,  g = Gqrx, m = Mouse, k = VFO Knob
-  Quit             :  q 
-  ```
-
-
+### Connect a USB VFO Knob
+To set up an unknown knob, see: [Use a USB Volume Knob as VFO Knob](#use-a-usb-volume-knob-as-vfo-knob) 
 
 ## Table of Contents  
 
