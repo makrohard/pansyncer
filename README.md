@@ -204,8 +204,8 @@ Rig has two connection statuses: Gray means "rigctld socket alive"; Green means 
  PanSyncer Control      iFreq
  Sync      ON   73.095.000 Hz
  Step                  100 Hz
- Rig       CON  14.172.100 Hz
- Gqrx      CON  14.172.000 Hz
+ Rig       CON  14.200.000 Hz
+ Gqrx      CON  14.200.000 Hz
  Knob      CON
  Mouse     CON  UP
  Keyboard                20m
@@ -219,9 +219,17 @@ Pressing **?** shows help:
 [INFO] Change Step      :  Spacebar, middle mouse button or knob click
 [INFO] Toggle devices   :  r = Rig,  g = Gqrx, m = Mouse, k = VFO Knob
 [INFO] Change Band      :  w = Up,  s = Down
+[INFO] Toggle display   :  d
 [INFO] Quit             :  q 
 ```
 
+For small screens, you can switch to a very minimalistic display mode:
+
+```
+ Sync      ON          100 Hz
+ Rig       CON  14.200.000 Hz
+ Gqrx      CON  14.200.000 Hz
+```
 
 ### Daemon mode
 

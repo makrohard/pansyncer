@@ -6,7 +6,7 @@
 log_level                  = "INFO"                     # All modules without own logger instance log to main.
 logfile_path               = ""                         # Logging will go to display and optionally to logfile, too.
 
-daemon = false                                          ##### Run in background (no display)
+daemon                     = false                      ##### Run in background (no display)
 
                                                         ##### Mode selection
                                                         # (uncomment for iFreq mode, commented uses direct mode)
@@ -57,10 +57,12 @@ sync_debounce_time         = 3.0                        # Direct mode, last-chan
 nudge_buffer               = 10                         # Limit
 read_buffer_size           = 1024
 
-[display]                                               ### Display logging parameters
-log_drop_time = 10.0                                    # How long to keep log entries (seconds)
-input_drop_time = 1.0                                   # How long to show a single input indicator (seconds)
-log_lines = 6                                           # Number of log lines to display
+[display]                                               ### Display parameters
+small_display              = false                      ##### Show minimal display
+log_drop_time              = 10.0                       # How long to keep log entries (seconds)
+input_drop_time            = 1.0                        # How long to show a single input indicator (seconds)
+log_lines                  = 7                          # Number of log lines to display in full mode
+log_lines_small            = 1                          # Number of log lines to display in small mode
 
 [reconnect_scheduler]                                   ### Reconnect Config
 reconnect_interval         = 3.0                        # Interval between reconnection attempts (seconds)
@@ -70,9 +72,9 @@ jitter                     = 0.10                       # Random jitter fraction
 slow_threshold             = 1.0                        # Threshold for considering a task “slow” (seconds)
 
 [bands]
-region = "r1"                                           ##### IARU Region -  choose: r1 | r2 | r3 | r3_jp
+region                     = "r1"                       ##### IARU Region -  choose: r1 | r2 | r3 | r3_jp
 
-r1 = [
+r1                         = [
   { name = "160m", start = 1.810,  goto = 1.843,  end = 2.000 },
   { name = " 80m", start = 3.500,  goto = 3.603,  end = 3.800 },
   { name = " 60m", start = 5.3515, goto = 5.354,  end = 5.3665 },
@@ -85,7 +87,7 @@ r1 = [
   { name = " 10m", start = 28.000, goto = 28.320, end = 29.700 },
   { name = "  6m", start = 50.000, goto = 50.100, end = 52.000 }
 ]
-r2 = [
+r2                         = [
   { name = "160m", start = 1.800,  goto = 1.840,  end = 2.000 },
   { name = " 80m", start = 3.500,  goto = 3.600,  end = 4.000 },
   { name = " 60m", start = 5.3515, goto = 5.354,  end = 5.3665 },
@@ -98,7 +100,7 @@ r2 = [
   { name = " 10m", start = 28.000, goto = 28.320, end = 29.700 },
   { name = "  6m", start = 50.000, goto = 50.100, end = 54.000 }
 ]
-r3 = [
+r3                         = [
   { name = "160m", start = 1.800,  goto = 1.840,  end = 2.000 },
   { name = " 80m", start = 3.500,  goto = 3.600,  end = 3.900 },
   { name = " 60m", start = 5.3515, goto = 5.354,  end = 5.3665 },
@@ -111,7 +113,7 @@ r3 = [
   { name = " 10m", start = 28.000, goto = 28.320, end = 29.700 },
   { name = "  6m", start = 50.000, goto = 50.100, end = 54.000 }
 ]
-r3_jp = [
+r3_jp                        = [
   { name = "160m-A", start = 1.800,  goto = 1.845,  end = 1.875 },
   { name = "160m-B", start = 1.9075, goto = 1.9075, end = 1.9125 },
   { name = " 80m-A", start = 3.530,  goto = 3.530,  end = 3.580 },
@@ -141,7 +143,7 @@ key_down                   = 114                        # ecodes.KEY_VOLUMEDOWN
 key_step                   = 113                        # ecodes.KEY_MUTE
 
 [[knobs]]
-target_name    = "LCTECH LCKEY"
+target_name                = "LCTECH LCKEY"
 target_vendor              = 0x1189
 target_product             = 0x8890
 key_up                     = 115
@@ -149,7 +151,7 @@ key_down                   = 114
 key_step                   = 113
 
 [[knobs]]
-target_name    = "HID 413d:553a"
+target_name                = "HID 413d:553a"
 target_vendor              = 0x413d
 target_product             = 0x553a
 key_up                     = 115

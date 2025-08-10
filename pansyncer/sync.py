@@ -169,7 +169,8 @@ class SyncManager:
         self._log_rig_change(self.cfg.sync.wait_before_log_rigfreq, now)                # Log Frequency
         self._apply_sync_actions(now)                                                   # Apply sync actions
         self._update_sync_state()                                                       # Update sync state (On/Off)
-        self._update_band()                                                             # Update band name
+        if self.display is not None and not self.cfg.display.small_display:             # Update band name
+            self._update_band()
         self._update_ui()                                                               # Update display
 
     def nudge(self, delta_hz):

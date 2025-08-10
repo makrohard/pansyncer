@@ -80,6 +80,8 @@ class Config:
                 setattr(cfg.main, key, val)
             elif hasattr(cfg.sync, key):
                 setattr(cfg.sync, key, val)
+            elif hasattr(cfg.display, key):
+                setattr(cfg.display, key, val)
                                                                                         # overlay devices from args
         if args.devices is not None:
             map_ = DeviceRegisterConfig().device_map

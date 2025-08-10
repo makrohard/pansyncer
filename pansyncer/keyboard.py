@@ -69,9 +69,9 @@ class KeyboardController:
             self.logger.log("Change Step      :  Spacebar, middle mouse button or knob click", "INFO")
             self.logger.log("Toggle devices   :  r = Rig,  g = Gqrx, m = Mouse, k = VFO Knob", "INFO")
             self.logger.log("Change Band      :  w = Up,  s = Down", "INFO")
+            self.logger.log("Toggle display   :  d", "INFO")
             self.logger.log("Quit             :  q ", "INFO")
-
-                                                                                        # Switch sync ON
+                                                                                       # Switch sync ON
         elif key == '1':
 
             rig_ok = (self.sync.radio['rig']['sock'] is not None) and self.devices.enabled('rig')
@@ -141,6 +141,11 @@ class KeyboardController:
         elif key.upper() == 'S':
             self.sync.band_step(-1)
             self.logger.log("Band down", "INFO")
+                                                                                        # Toggle Display
+        elif key.upper() == 'D':
+            self.display.toggle_small_display()
+            state = 'SMALL' if self.display.cfg.display.small_display else 'FULL'
+            self.logger.log(f"[DISPLAY TOGGLE] {state}", "DEBUG")
                                                                                         # Quit command
         elif key.upper() == 'Q':
             return 'quit'

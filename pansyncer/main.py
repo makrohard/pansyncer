@@ -153,11 +153,13 @@ class PanSyncer:
             help=("IFreq Mode: param offset in MHz e.g. --ifreq 73.095\n"
                   "Changes LO for hardware-coupled pansyncer frequency\n"
                   "If not specified, Direct Mode is used: Bidirectional freq-sync."))
-        parser.add_argument("-n", "--no-auto-rig", action="store_true",
+        parser.add_argument("-n", "--no-auto-rig", action="store_true", default=None,
             help="Require rigctld already running; do not auto-start")
         parser.add_argument("-l", "--log", nargs="?", const="pansyncer.log",
             help="Enable frequency logging; optionally specify logfile path")
-        parser.add_argument("-b", "--daemon", action="store_true",
+        parser.add_argument("-s", "--small_display", action="store_true", default=None,
+            help="Show minimal display. Display only essential information for small screens.")
+        parser.add_argument("-b", "--daemon", action="store_true", default=None,
             help="Disable inputs and graphical display")
         parser.add_argument('-c', '--config-file',
             default='pansyncer.toml',
