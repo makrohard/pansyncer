@@ -144,7 +144,7 @@ class Display:
             self._frame_parts.append(
                 f"\033[{row};1H {label:<{self._label_width - 1}}")
 
-        self._frame_parts.append(f"\033[1;{self._mode_col}H\033[38;5;75m{self._mode}\033[0m") # Mode label
+        self._frame_parts.append(f"\033[1;{self._mode_col}H\033[96m{self._mode}\033[0m") # Mode label
 
         status = "ON " if self._sync_on else "OFF"                                # Sync status
         color = "32" if self._sync_on else "31"
@@ -153,7 +153,7 @@ class Display:
             f"\033[{color}m{status:<{self._status_width}}\033[0m")
 
         if self._ifreq is not None:                                               # iFreq
-            self._draw_freq(2, self._ifreq, style="\033[38;5;75m")
+            self._draw_freq(2, self._ifreq)
 
         self._draw_freq(3, self._step_value)                                 # Step frequency
 
@@ -184,7 +184,7 @@ class Display:
         self._frame_parts.append(f"\033[{r};{self._status_col}H{'':<{self._status_width}}")
         self._frame_parts.append(f"\033[{r};{self._input_col}H{self._keyboard_input:<3}")
         col = self._freq_col - len(self._band_name)                                # Band name
-        self._frame_parts.append(f"\033[{r};{col}H{self._band_name}")
+        self._frame_parts.append(f"\033[{r};{col}H\033[1;96m{self._band_name}\033[0m")
 
         base_row = max(self._row_map.values()) + 1 if self._row_map else self._first_device_row   # Logs
         if base_row > old_base:                                                    # Clear on log pushdown (device add)
