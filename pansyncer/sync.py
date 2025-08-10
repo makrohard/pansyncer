@@ -236,7 +236,7 @@ class SyncManager:
                 return False
             bands = Bands()
             freq_mhz = cur / 1_000_000
-            goto_mhz = bands.next_band(freq_mhz) if direction > 0 else bands.prev_band(freq_mhz)
+            goto_mhz = bands.step(freq_mhz, +1) if direction > 0 else bands.step(freq_mhz, -1)
             if not goto_mhz:
                 return False
 

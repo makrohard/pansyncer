@@ -5,7 +5,7 @@ Tracks which peripherals are enabled, fires callbacks when devices are added or 
 
 from dataclasses import dataclass, field
 from typing import List, Dict, Set
-
+from pansyncer.utils import beep
 
 @dataclass
 class DeviceRegisterConfig:
@@ -69,6 +69,7 @@ class DeviceRegister:
             other = next(r for r in self.cfg.devices.radios if r != dev)
             if other not in self._devices:
                 if self.logger: self.logger.log(f"Cannot disable both {dev} and {other}", "ERROR")
+                beep()
                 return False
                                                                                                    # Perform the toggle
         if dev in self._devices:

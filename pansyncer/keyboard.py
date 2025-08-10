@@ -5,6 +5,7 @@ then processes a single character.
 """
 import sys
 import os
+from pansyncer.utils import beep
 
 class KeyboardController:
     """ Keyboard event handling via stdin """
@@ -73,13 +74,20 @@ class KeyboardController:
                                                                                         # Switch sync ON
         elif key == '1':
 
-            if (self.sync.radio['rig']['sock'] is not None and self.devices.enabled('rig')
-            or self.sync.radio['gqrx']['sock'] is not None and self.devices.enabled('gqrx')):
+            rig_ok = (self.sync.radio['rig']['sock'] is not None) and self.devices.enabled('rig')
+            gqrx_ok = (self.sync.radio['gqrx']['sock'] is not None) and self.devices.enabled('gqrx')
+
+            if rig_ok and gqrx_ok:
                 self.sync.set_sync_mode(True)
                 if self.display: self.display.set_sync_mode(True)
                 self.logger.log('Sync ON', 'INFO')
             else:
+                self.sync.set_sync_mode(False)
+                if self.display:
+                    self.display.set_sync_mode(False)
                 self.logger.log('Cannot enable sync – both Rig and Gqrx must be connected.', 'ERROR')
+                beep()
+
             return None
                                                                                         # Switch sync OFF
         if key == '0':

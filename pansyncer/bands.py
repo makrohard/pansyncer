@@ -4,6 +4,7 @@ Ham radio band definitions and utilities
 """
 from dataclasses import dataclass
 from bisect import bisect_right
+from pansyncer.utils import beep
 
 @dataclass
 class Band:
@@ -38,32 +39,35 @@ class Bands:
         idx = self._get_band_index(freq_mhz)
         return self._bands[idx].name if idx is not None else "OOB"
 
-    def next_band(self, freq_mhz):
+    def step(self, freq_mhz, direction):
+        """Band Up / Down"""
         idx_inside = self._get_band_index(freq_mhz)
         if idx_inside is not None:
-            if idx_inside == len(self._bands) - 1:
-                return False
-            self._bands[idx_inside].goto = freq_mhz
-            return self._bands[idx_inside + 1].goto
+            if direction > 0:
+                if idx_inside == len(self._bands) - 1:
+                    beep()
+                    return False
+                self._bands[idx_inside].goto = freq_mhz
+                return self._bands[idx_inside + 1].goto
+            else:
+                if idx_inside == 0:
+                    beep()
+                    return False
+                self._bands[idx_inside].goto = freq_mhz
+                return self._bands[idx_inside - 1].goto
 
         i = self._index_for(freq_mhz)
-        next_idx = i + 1
-        if next_idx >= len(self._bands):
-            return False
-        return self._bands[next_idx].goto
-
-    def prev_band(self, freq_mhz):
-        idx_inside = self._get_band_index(freq_mhz)
-        if idx_inside is not None:
-            if idx_inside == 0:
+        if direction > 0:
+            next_idx = i + 1
+            if next_idx >= len(self._bands):
+                beep()
                 return False
-            self._bands[idx_inside].goto = freq_mhz
-            return self._bands[idx_inside - 1].goto
-
-        i = self._index_for(freq_mhz)
-        if i < 0:
-            return False
-        return self._bands[i].goto
+            return self._bands[next_idx].goto
+        else:
+            if i < 0:
+                beep()
+                return False
+            return self._bands[i].goto
 
     def _index_for(self, freq_mhz):
         return bisect_right(self._starts, freq_mhz) - 1
