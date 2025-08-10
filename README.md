@@ -185,9 +185,9 @@ Rig has two connection statuses: Gray means "rigctld socket alive"; Green means 
  Step                  100 Hz
  Rig       CON  14.172.100 Hz
  Gqrx      CON  14.172.000 Hz
- Knob      CON     
- Mouse     CON     
- Keyboard       UP 
+ Knob      CON
+ Mouse     CON  UP
+ Keyboard                20m
 ```
 
 Pressing **?** shows help:
