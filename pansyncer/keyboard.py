@@ -114,40 +114,48 @@ class KeyboardController:
         if key.upper() == 'G':
             self.devices.toggle('gqrx')
             state = 'ENABLED' if self.devices.enabled('gqrx') else 'DISABLED'
+            if self.display: self.display.set_keyboard_input('GQR')
             self.logger.log(f"[DEVICE] GQRX {state}", "DEBUG")
 
                                                                                         # Toggle rig
         elif key.upper() == 'R':
             self.devices.toggle('rig')
             state = 'ENABLED' if self.devices.enabled('rig') else 'DISABLED'
+            if self.display: self.display.set_keyboard_input('RIG')
             self.logger.log(f"[DEVICE] RIG {state}", "DEBUG")
 
                                                                                         # Toggle Knob
         elif key.upper() == 'K':
             self.devices.toggle('knob')
             state = 'ENABLED' if self.devices.enabled('knob') else 'DISABLED'
+            if self.display: self.display.set_keyboard_input('KNB')
             self.logger.log(f"[DEVICE] KNOB {state}", "DEBUG")
 
                                                                                         # Toggle Mouse
         elif key.upper() == 'M':
             self.devices.toggle('mouse')
             state = 'ENABLED' if self.devices.enabled('mouse') else 'DISABLED'
+            if self.display: self.display.set_keyboard_input('MSE')
             self.logger.log(f"[DEVICE] MOUSE {state}", "DEBUG")
                                                                                         # Band up
         elif key.upper() == 'W':
             self.sync.band_step(1)
+            if self.display: self.display.set_keyboard_input('BUP')
             self.logger.log("Band up", "INFO")
                                                                                         # Band down
         elif key.upper() == 'S':
             self.sync.band_step(-1)
+            if self.display: self.display.set_keyboard_input('BDN')
             self.logger.log("Band down", "INFO")
                                                                                         # Toggle Display
         elif key.upper() == 'D':
             self.display.toggle_small_display()
             state = 'SMALL' if self.display.cfg.display.small_display else 'FULL'
+            if self.display: self.display.set_keyboard_input('DSP')
             self.logger.log(f"[DISPLAY TOGGLE] {state}", "DEBUG")
                                                                                         # Quit command
         elif key.upper() == 'Q':
+            if self.display: self.display.set_keyboard_input('EXT')
             return 'quit'
 
         return None
