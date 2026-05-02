@@ -2,7 +2,7 @@
 pansyncer bands.py
 Ham radio band definitions and utilities
 """
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from bisect import bisect_right
 from pansyncer.utils import beep
 
@@ -31,7 +31,8 @@ class Bands:
     """ Band classifier """
 
     def __init__(self, bands=None):
-        self._bands = bands or DEFAULT_BANDS
+        source = bands if bands is not None else DEFAULT_BANDS
+        self._bands = [replace(b) for b in source]
         self._starts = [b.start for b in self._bands]
         self._ends   = [b.end   for b in self._bands]
 

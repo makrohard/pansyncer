@@ -57,6 +57,7 @@ class SyncManager:
         self.step = step
         self.display = display
         self.ifreq = self.cfg.main.ifreq
+        self.bands = Bands(self.cfg.bands)
         self._shutdown = False
 
         self.radio = {
@@ -234,9 +235,8 @@ class SyncManager:
             cur = self.get_frequency()
             if cur is None:
                 return False
-            bands = Bands()
             freq_mhz = cur / 1_000_000
-            goto_mhz = bands.step(freq_mhz, +1) if direction > 0 else bands.step(freq_mhz, -1)
+            goto_mhz = self.bands.step(freq_mhz, +1) if direction > 0 else self.bands.step(freq_mhz, -1)
             if not goto_mhz:
                 return False
 
@@ -361,7 +361,7 @@ class SyncManager:
         if freq_hz is None:
             return
 
-        band_name = Bands().band_name(freq_hz / 1_000_000)
+        band_name = self.bands.band_name(freq_hz / 1_000_000)
         self.display.set_band_name(band_name)
 
     def _apply_sync_actions(self, now):
