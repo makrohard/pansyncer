@@ -38,20 +38,16 @@ class TaskRecord:
                                                                                        ##### Scheduler
 class ReconnectScheduler:
     """ Schedule worker threads for periodic connection checks"""
-    def __init__(self,
-                 cfg,
-                 logger,
-                 max_workers = 4,
-                 backoff_cap = 60.0,
-                 jitter = 0.10,
-                 slow_threshold = 1.0):
+    def __init__(self, cfg, logger):
         self.cfg = cfg
         self.logger = logger
         self.reconnect_interval = self.cfg.reconnect_scheduler.reconnect_interval
-        self.backoff_cap = backoff_cap
-        self.jitter = jitter
-        self.slow_threshold = slow_threshold
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
+        self.backoff_cap = self.cfg.reconnect_scheduler.backoff_cap
+        self.jitter = self.cfg.reconnect_scheduler.jitter
+        self.slow_threshold = self.cfg.reconnect_scheduler.slow_threshold
+        self.executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=self.cfg.reconnect_scheduler.max_workers
+        )
         self.tasks = {}
         self.generation = 0
         self._result_queue = Queue()
