@@ -1,9 +1,18 @@
 # Changelog
+## 0.4.2
+- Fixed frequency logging via -l/--log.
+- Fixed delayed rig frequency logging and timestamps.
+- Fixed configured band table usage and band display updates.
+- Fixed pending nudge handling.
+- Fixed shutdown/socket cleanup crashes.
+- Improved malformed RPRT and rigcheck socket handling.
+- Fixed reconnect scheduler TOML settings.
+- Improved non-TTY startup and longer band labels.
 
 ## 0.4.1
 - Added small display functionality
 - Minor bug fixes
-- 
+ 
 ## 0.4.0
 - Added Bands functionality
 
