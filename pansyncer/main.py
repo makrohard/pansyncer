@@ -35,6 +35,8 @@ class PanSyncer:
             sys.exit(1)
 
         self.is_tty = sys.stdin.isatty() and not self.cfg.main.daemon                   # Check terminal
+        if not self.is_tty:
+            self.cfg.main.daemon = True
 
         if self.cfg.main.daemon:                                                        # Display setup
             self.display = None
