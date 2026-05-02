@@ -277,11 +277,6 @@ class SyncManager:
                     self.logger.close()
                 except Exception:
                     pass
-                try:                                                                    # Reset poller and FD map
-                    self._poller = select.poll()
-                except OSError:
-                    pass
-                self._fd_map.clear()
 
         if role not in self.radio:                                                      ##### Per role shutdown
             keys = list(self.radio.keys())
@@ -306,6 +301,13 @@ class SyncManager:
                 'command'                     : None,
                 'events'                      : []
             })
+
+        if role is None:
+            try:                                                                        # Reset poller and FD map
+                self._poller = select.poll()
+            except OSError:
+                pass
+            self._fd_map.clear()
 
     # # # # # # # # # # # # #
     # # #   UI Update   # # #
@@ -600,7 +602,7 @@ class SyncManager:
                 fd = sock.fileno()
                 self._poller.unregister(fd)
                 self._fd_map.pop(fd, None)
-            except (OSError, ValueError):
+            except (OSError, ValueError, KeyError):
                 pass
             try:                                                                        # close socket
                 sock.close()
