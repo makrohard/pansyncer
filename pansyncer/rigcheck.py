@@ -135,6 +135,8 @@ class RigChecker:
     def _reset_socket(self):
         """Close the socket."""
         if self.display: self.display.set_rig_con(False)
+        if self._sock is None:
+            return
         try:
             self._sock.close()
         except OSError as e:
