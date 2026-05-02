@@ -57,6 +57,7 @@ class RigChecker:
         except (BrokenPipeError, ConnectionResetError, socket.error) as e:
             self.logger.log(f"RIGCHECK socket send failed: {e}", "WARNING")
             self._reset_socket()
+            return
 
         try:                                                                            # Read socket
             data = self._sock.recv(1024)
@@ -67,7 +68,7 @@ class RigChecker:
         if not data:
             self.logger.log("RIGCHECK SOCKET DIED", "WARNING")
             self._reset_socket()
-
+            return
         self.logger.log(f"RIGCHECK RECEIVED: {data}", "DEBUG")
 
         reply = data.partition(b'\n')[0].decode().strip()
