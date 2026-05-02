@@ -55,6 +55,7 @@ class Display:
         self._status_col = 12                              # Columns for labels         # CON/DIS
         self._input_col = 17                                                            # UP/DWN/STP
         self._freq_col = 30                                                             # Frequency
+        self._band_width = 6                                                            # Band name
         self._mode_col = self._freq_col - 6                                             # iFreq / Direct
         self._first_device_row = 4
         self._header_width = self._mode_col - 1
@@ -294,7 +295,7 @@ class Display:
     @synchronized
     def set_band_name(self, name: str):
         """Set the band label"""
-        self._band_name = (name or "").rjust(4)[:4]
+        self._band_name = (name or "").rjust(self._band_width)[:self._band_width]
 
     @synchronized
     def set_mouse_input(self, text: str):
