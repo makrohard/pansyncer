@@ -46,7 +46,13 @@ class KnobController:
             self.logger.log(f"VFO-Knob connected: {self.dev.name}", "INFO")
         except OSError as e:
             self.logger.log(f"Failed to grab device KNOB {e}", "WARN")
+            try:
+                self.dev.close()
+            except OSError:
+                pass
             self.dev = None
+            self.active_cfg = None
+
 
     def disconnect(self):
         """Release grab and reset state."""
@@ -110,27 +116,39 @@ class KnobController:
     @classmethod
     def _probe_device(cls, knob_cfg, logger):
         """Scan for devices and return matching VFO InputDevice or None."""
-        #logger.log(f"Probing for knob: {knob_cfg.target_name} vendor={hex(knob_cfg.target_vendor)} product={hex(knob_cfg.target_product)}","DEBUG")
         for path in list_devices():
             try:
                 dev = InputDevice(path)
-                #logger.log(f"Checking device at {path}: name={dev.name} vendor={hex(dev.info.vendor)} product={hex(dev.info.product)}","DEBUG")
-                if (dev.name == knob_cfg.target_name
-                    and dev.info.vendor == knob_cfg.target_vendor
-                    and dev.info.product == knob_cfg.target_product):
-
-                    caps = dev.capabilities().get(ecodes.EV_KEY, [])
-                    #logger.log(f"Capabilities for {dev.name}: {caps}", "DEBUG")
-                    if knob_cfg.key_up in caps and knob_cfg.key_down in caps:
-                        logger.log(f"VFO-Knob found: {dev.name}", "DEBUG")
-                        return dev
-                    else:
-                        #logger.log(f"Device {dev.name} ignored (missing key_up/down capabilities)", "DEBUG")
-                        logger.log(
-                            f"Device {dev.name} ignored (missing key_up/down capabilities)",
-                            "DEBUG",
-                        )
             except OSError as e:
                 logger.log(f"Error accessing KNOB {path}: {e}", "WARN")
                 continue
+
+            matched = False
+            try:
+                matched = (
+                    dev.name == knob_cfg.target_name
+                    and dev.info.vendor == knob_cfg.target_vendor
+                    and dev.info.product == knob_cfg.target_product
+                )
+
+                if not matched:
+                    continue
+
+                caps = dev.capabilities().get(ecodes.EV_KEY, [])
+                if knob_cfg.key_up in caps and knob_cfg.key_down in caps:
+                    logger.log(f"VFO-Knob found: {dev.name}", "DEBUG")
+                    return dev
+
+                logger.log(
+                    f"Device {dev.name} ignored (missing key_up/down capabilities)",
+                    "DEBUG",
+                )
+
+            finally:
+                if not matched:
+                    try:
+                        dev.close()
+                    except OSError:
+                        pass
+
         return None
