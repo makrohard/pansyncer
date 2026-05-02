@@ -432,10 +432,11 @@ class SyncManager:
                 or not self.devices.enabled(role)
                 or rdo['is_busy'] is not None
                 or rdo['freq_cur'] is None
-                or not rdo['freq_delta'] and rdo['freq_sent'] is None):
+                or not rdo['freq_delta']):
             return
 
-        new_freq = rdo['freq_cur'] + rdo['freq_delta']                                  # FreqSetCmd, overwrites
+        base_freq = rdo['freq_sent'] if rdo['freq_sent'] is not None else rdo['freq_cur']
+        new_freq = base_freq + rdo['freq_delta']                                        # FreqSetCmd, overwrites
         rdo['freq_delta_sent'] = rdo['freq_delta']
         rdo['freq_sent'] = new_freq
         rdo['command'] = self._build_cat_cmd(new_freq)
