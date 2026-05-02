@@ -28,15 +28,16 @@ class PanSyncer:
 
     def __init__(self, cfg: Config):
         self.cfg = cfg
-        self.devices = DeviceRegister(self.cfg)                                         # Register devices
-
-        if not {'rig', 'gqrx'} & self.devices.list():                                   # Must have at least one radio
-            print("[ERROR] You must specify at least one of --devices f|g")
-            sys.exit(1)
 
         self.is_tty = sys.stdin.isatty() and not self.cfg.main.daemon                   # Check terminal
         if not self.is_tty:
             self.cfg.main.daemon = True
+
+        self.devices = DeviceRegister(self.cfg)                                         # Register devices
+
+        if not {'rig', 'gqrx'} & self.devices.list():                                   # Must have at least one radio
+            print("[ERROR] You must specify at least one of --devices r|g")
+            sys.exit(1)
 
         if self.cfg.main.daemon:                                                        # Display setup
             self.display = None
