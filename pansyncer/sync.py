@@ -549,7 +549,8 @@ class SyncManager:
                         rdo['freq_delta'] = 0
                 else:                                                                   # Error Report
                     is_error = True
-                    self.logger.log(f"{role.upper()} ERROR RPRT {code.decode()}", "DEBUG")
+                    code_text = code.decode() if code is not None else "UNKNOWN"
+                    self.logger.log(f"{role.upper()} ERROR RPRT {code_text}", "DEBUG")
             else:
                 try:                                                                    ##### READ FREQUENCY
                     freq = int(part)
