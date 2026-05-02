@@ -532,6 +532,9 @@ class SyncManager:
                 if code and code == b"0":                                               ##### Success Report
                     self.logger.log(f"{role.upper()} RPRT SUCCESS", "DEBUG")
                     if rdo['freq_sent'] is not None:
+                        if role == 'rig' and rdo['freq_sent'] != rdo['freq_cur']:
+                            self._last_rig_change = now
+                            self._rig_reported = False
                         rdo['freq_prev'] = rdo['freq_cur']                              # Set internal state on success
                         rdo['freq_cur'] = rdo['freq_sent']
                         rdo['freq_sent'] = None
@@ -616,7 +619,7 @@ class SyncManager:
         """Log Rig frequency, ."""
         if self.log_file is not None and self._last_rig_change is not None and not self._rig_reported:
             if now - self._last_rig_change > wait:
-                ts = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(now))
+                ts = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
                 line = f"{ts} {self.radio['rig']['freq_cur']}\n"
                 self._write_log(line)
                 self._rig_reported = True

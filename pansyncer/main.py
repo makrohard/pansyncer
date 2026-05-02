@@ -155,7 +155,7 @@ class PanSyncer:
                   "If not specified, Direct Mode is used: Bidirectional freq-sync."))
         parser.add_argument("-n", "--no-auto-rig", action="store_true", default=None,
             help="Require rigctld already running; do not auto-start")
-        parser.add_argument("-l", "--log", nargs="?", const="pansyncer.log",
+        parser.add_argument("-l", "--log", dest="freq_log_path", nargs="?", const="pansyncer.log",
             help="Enable frequency logging; optionally specify logfile path")
         parser.add_argument("-s", "--small_display", action="store_true", default=None,
             help="Show minimal display. Display only essential information for small screens.")
