@@ -29,7 +29,7 @@ hamlib_remote_ip           = "127.0.0.1"                # IP address where rigct
                                                         # Enabled devices at startup:
                                                         # ["rig", "gqrx", "knob", "mouse"]
                                                         # keyboard will be injected if daemon = false
-enabled                    = ["rig", "gqrx", "knob", "mouse"]
+enabled                    = ["rig", "gqrx", "knob"]
 
 [sync]                                                  ### Sync config
 log_level                  = "INFO"                     # DEBUG will show the CAT communication
