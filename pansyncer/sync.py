@@ -611,8 +611,16 @@ class SyncManager:
             except OSError:
                 pass
 
-        rdo['sock'] = None                                                              # reset state
-        rdo['recv_buf'] = bytearray()
+        rdo.update({                                                                    # reset socket state
+            'sock'                        : None,
+            'recv_buf'                    : bytearray(),
+            'command'                     : None,
+            'is_busy'                     : None,
+            'freq_sent'                   : None,
+            'freq_delta'                  : 0,
+            'freq_delta_sent'             : 0,
+            'events'                      : []
+        })
         self.sync_on = False
 
     # # # # # # # # # # # # # # # # #
