@@ -5,6 +5,7 @@ ANSI terminal UI.
 import sys
 import time
 import threading
+import shutil
 from dataclasses import dataclass
 from functools import wraps
 
@@ -13,6 +14,7 @@ class DisplayConfig:
     """Default configuration"""
     log_drop_time: float = 5.0
     input_drop_time: float = 1.0
+    resize_check_interval: float = 1.0
     log_lines: int = 7
     log_lines_small: int = 1
     small_display: bool = False
@@ -57,6 +59,10 @@ class Display:
         self._freq_col = 30                                                             # Frequency
         self._band_width = 6                                                            # Band name
         self._mode_col = self._freq_col - 6                                             # iFreq / Direct
+        size = shutil.get_terminal_size((80, 24))
+        self._term_cols = size.columns
+        self._term_rows = size.lines
+        self._resize_check_ts = 0.0
         self._first_device_row = 4
         self._header_width = self._mode_col - 1
         self._label_width  = self._status_col - 1
@@ -230,6 +236,31 @@ class Display:
         self._frame = "".join(self._frame_parts)                            # Put frame together and write it to screen
         sys.stdout.write(self._frame)
         sys.stdout.flush()
+
+    @synchronized
+    def check_resize(self, now):
+        """Detect terminal resize, clear screen and force full redraw."""
+        if not self._is_tty:
+            return False
+
+        if now - self._resize_check_ts < self.cfg.display.resize_check_interval:
+            return False
+        self._resize_check_ts = now
+
+        size = shutil.get_terminal_size((80, 24))
+        if size.columns == self._term_cols and size.lines == self._term_rows:
+            return False
+
+        self._term_cols = size.columns
+        self._term_rows = size.lines
+
+        sys.stdout.write("\033[2J\033[H")
+        sys.stdout.flush()
+
+        self._last_log_end_row = 0
+        self._row_map.clear()
+        super().__setattr__('_redraw', True)
+        return True
 
     @synchronized
     def set_mode(self, mode: str):

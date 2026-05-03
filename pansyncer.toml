@@ -61,6 +61,7 @@ read_buffer_size           = 1024
 small_display              = false                      ##### Show minimal display
 log_drop_time              = 10.0                       # How long to keep log entries (seconds)
 input_drop_time            = 1.0                        # How long to show a single input indicator (seconds)
+resize_check_interval      = 1.0                        # How often to check for terminal resize (seconds)
 log_lines                  = 7                          # Number of log lines to display in full mode
 log_lines_small            = 1                          # Number of log lines to display in small mode
 

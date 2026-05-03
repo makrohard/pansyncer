@@ -103,7 +103,9 @@ class PanSyncer:
                         self.display.draw(now)
                     break
                 self.sync.tick(now)
-                if self.display: self.display.draw(now)
+                if self.display:
+                    self.display.check_resize(now)
+                    self.display.draw(now)
         except (KeyboardInterrupt, InterruptedError, EOFError):
             pass
 
