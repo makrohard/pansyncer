@@ -105,19 +105,20 @@ class PanSyncer:
             self.sync.shutdown()
         except Exception as e:
             self.logger.log(f"sync shutdown error: {e}", "ERROR")
+        try:
+            if self.display:
+                self.display.cleanup()
+        except Exception:
+            pass
+        try:
+            self.logger.close()
+        except Exception:
+            pass
+
         if self.is_tty:
             try:
                 sys.stdout.write("\033[?1004l\033[?2004l")                                  # disable focus and paste
                 sys.stdout.flush()
-            except Exception:
-                pass
-            try:
-                if self.display:
-                    self.display.cleanup()
-            except Exception:
-                pass
-            try:
-                self.logger.close()
             except Exception:
                 pass
             if self.old_term is not None:                                                   # reset terminal
