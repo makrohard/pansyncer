@@ -151,7 +151,9 @@ class SyncManager:
             if any(flag & select.POLLIN for _, flag in evs):                            # Read and process incoming data
                 self._process_incoming(role, now)
 
-            if rdo['freq_cur'] is None and rdo['command'] is None:                      # Ensure that we have a freq
+            if (rdo['freq_cur'] is None
+                    and rdo['command'] is None
+                    and rdo['is_busy'] is None):                                        # Ensure that we have a freq
                 if self.ifreq is not None and role == 'gqrx':
                     rdo['command'] = b"LNB_LO\n"
                 else:
