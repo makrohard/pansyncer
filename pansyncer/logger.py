@@ -31,6 +31,9 @@ class Logger:
         self.logger = logging.getLogger(name)
         self.logger.setLevel(level.upper())
         self.logger.propagate = False
+        for handler in self.logger.handlers[:]:
+            handler.close()
+            self.logger.removeHandler(handler)
 
         formatter = logging.Formatter('[%(levelname)s] %(message)s')
 
