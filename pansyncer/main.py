@@ -202,6 +202,7 @@ def main():
     """PanSyncer lifecycle"""
     args = PanSyncer.parse_args()
     cfg = Config.from_args_and_file(args)
+    app = None
     try:
         app = PanSyncer(cfg)
         app.main_loop()
