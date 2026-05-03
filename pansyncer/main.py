@@ -144,7 +144,7 @@ class PanSyncer:
         try:
             if display:
                 display.cleanup()
-            else:
+            elif is_tty:
                 sys.stdout.write("\033[?25h\033[?1049l")
                 sys.stdout.flush()
         except Exception:
