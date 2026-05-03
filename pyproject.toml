@@ -10,7 +10,7 @@ name = "pansyncer"
 version = "0.5.0"
 description = "Synchronizes frequencies between FlRig (via rigctld) and GQRX. Reads input devices like external VFO-Knob (USB Volume Knob)."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 dependencies = ["evdev"]
 
 [project.scripts]
