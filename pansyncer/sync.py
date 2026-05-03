@@ -153,7 +153,7 @@ class SyncManager:
             if any(flag & select.POLLOUT for _, flag in evs):                           # Write outgoing data
                 self._send_command(role, now)
 
-            if rdo['freq_cur'] is None:                                                 # Ensure that we have a freq
+            if rdo['freq_cur'] is None and rdo['command'] is None:                      # Ensure that we have a freq
                 if self.ifreq is not None and role == 'gqrx':
                     rdo['command'] = b"LNB_LO\n"
                 else:
@@ -470,6 +470,7 @@ class SyncManager:
         rdo = self.radio[role]
         if (rdo['sock'] is None                                                         # Run conditions
                 or rdo['command'] is None
+                or rdo['is_busy'] is not None
                 or not self.devices.enabled(role)):
             return
 
