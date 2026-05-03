@@ -53,18 +53,12 @@ class DeviceHandler:
 
         if self.devices.enabled('rig') and not self.cfg.main.no_auto_rig:
             self._on_rig_added('rig')
-            if self._rigchk:
-                self.scheduler.register(self._rigchk.check_rig, tag='rig', backoff=True)
 
         if self.devices.enabled('knob'):
             self._on_knob_added('knob')
-            if self._knob:
-                self.scheduler.register(self._knob.ensure_connected, tag='knob', backoff=True)
 
         if self.devices.enabled('mouse'):
             self._on_mouse_added('mouse')
-            if self._mouse:
-                self.scheduler.register(self._mouse.ensure_connected, tag='mouse', backoff=True)
 
                                                                                         ##### PUBLIC API
     def tick(self, now):
