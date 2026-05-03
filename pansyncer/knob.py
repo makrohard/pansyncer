@@ -123,7 +123,7 @@ class KnobController:
                 logger.log(f"Error accessing KNOB {path}: {e}", "WARN")
                 continue
 
-            matched = False
+            keep = False
             try:
                 matched = (
                     dev.name == knob_cfg.target_name
@@ -137,6 +137,7 @@ class KnobController:
                 caps = dev.capabilities().get(ecodes.EV_KEY, [])
                 if knob_cfg.key_up in caps and knob_cfg.key_down in caps:
                     logger.log(f"VFO-Knob found: {dev.name}", "DEBUG")
+                    keep = True
                     return dev
 
                 logger.log(
@@ -145,7 +146,7 @@ class KnobController:
                 )
 
             finally:
-                if not matched:
+                if not keep:
                     try:
                         dev.close()
                     except OSError:
