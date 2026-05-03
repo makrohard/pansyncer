@@ -47,7 +47,7 @@ class RigChecker:
 
         if not self._sock:
             if self.display: self.display.set_rig_con(False)
-            return
+            return False
 
         try:                                                                            # Request RIG FREQ
             self._sock.sendall(b'f\n')
@@ -55,27 +55,30 @@ class RigChecker:
         except (BrokenPipeError, ConnectionResetError, socket.error) as e:
             self.logger.log(f"RIGCHECK socket send failed: {e}", "WARNING")
             self._reset_socket()
-            return
+            return False
 
         try:                                                                            # Read socket
             data = self._sock.recv(1024)
         except OSError as e:
             self.logger.log(f"RIGCHECK RECV ERROR {e}", "DEBUG")
             self._reset_socket()
-            return
+            return False
         if not data:
             self.logger.log("RIGCHECK SOCKET DIED", "WARNING")
             self._reset_socket()
-            return
+            return False
+
         self.logger.log(f"RIGCHECK RECEIVED: {data}", "DEBUG")
 
         reply = data.partition(b'\n')[0].decode().strip()
         try:
-            freq = int(reply)                 # Got integer from rig. Probably the frequency. Assume, that rig is alive.
+            freq = int(reply)
             self.rig_freq = freq
             if self.display: self.display.set_rig_con(True)
+            return True
         except ValueError:
             if self.display: self.display.set_rig_con(False)
+            return False
 
     def _ensure_rigctld(self):
         """ Start rigctld if it's not already listening on the configured port. """

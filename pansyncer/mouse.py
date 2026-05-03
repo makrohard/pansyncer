@@ -47,6 +47,7 @@ class MouseState:
         # FIXME Will not trigger if knob is connected, because knob its presenting a unused mouse device
         if not self.mice:
             self._discover_devices()
+        return bool(self.mice)
 
     def disconnect(self):
         """Close all tracked devices and clear state."""

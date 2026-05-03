@@ -36,14 +36,15 @@ class KnobController:
     def ensure_connected(self):
         """ Grab device, if found. """
         if self.dev:
-            return
+            return True
         self.dev = self._find_input_device()
         if not self.dev:
-            return
+            return False
         try:
             self.dev.grab()
             if self.display: self.display.set_knob(True)
             self.logger.log(f"VFO-Knob connected: {self.dev.name}", "INFO")
+            return True
         except OSError as e:
             self.logger.log(f"Failed to grab device KNOB {e}", "WARN")
             try:
@@ -52,6 +53,7 @@ class KnobController:
                 pass
             self.dev = None
             self.active_cfg = None
+            return False
 
 
     def disconnect(self):

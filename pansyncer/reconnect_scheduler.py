@@ -104,7 +104,9 @@ class ReconnectScheduler:
         start = time.monotonic()
         success = True
         try:
-            fn()
+            result = fn()
+            if result is False:
+                success = False
         except (OSError, IOError, ValueError, RuntimeError) as e:
             success = False
             self.logger.log("%s error: %s" % (fn.__name__, e), "DEBUG")
