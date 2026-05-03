@@ -80,16 +80,19 @@ class DeviceHandler:
                 self._rigchk.cleanup()
             except Exception as e:
                 self.logger.log(f'rigchk cleanup error: {e}', 'ERROR')
+            self._rigchk = None
         if self._knob:
             try:
                 self._knob.disconnect()
             except Exception as e:
                 self.logger.log(f'knob disconnect error: {e}', 'ERROR')
+            self._knob = None
         if self._mouse:
             try:
                 self._mouse.disconnect()
             except Exception as e:
                 self.logger.log(f'mouse disconnect error: {e}', 'ERROR')
+            self._mouse = None
         try:
             self.scheduler.shutdown(wait=False)
         except Exception as e:
