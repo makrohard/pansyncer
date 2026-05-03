@@ -161,10 +161,11 @@ class KeyboardController:
             self.logger.log("Band down", "INFO")
                                                                                         # Toggle Display
         elif key.upper() == 'D':
-            self.display.toggle_small_display()
-            state = 'SMALL' if self.display.cfg.display.small_display else 'FULL'
-            if self.display: self.display.set_keyboard_input('DSP')
-            self.logger.log(f"[DISPLAY TOGGLE] {state}", "DEBUG")
+            if self.display:
+                self.display.toggle_small_display()
+                state = 'SMALL' if self.display.cfg.display.small_display else 'FULL'
+                if self.display: self.display.set_keyboard_input('DSP')
+                self.logger.log(f"[DISPLAY TOGGLE] {state}", "DEBUG")
                                                                                         # Quit command
         elif key.upper() == 'Q':
             if self.display: self.display.set_keyboard_input('EXT')
