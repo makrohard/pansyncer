@@ -83,7 +83,7 @@ class Display:
         self._step_value = 100
         self._mode = ""
         self._ifreq = None
-        self._band_name = "    "
+        self._band_name = "      "
         self._logs = []                                                            # logs
         self._last_log_end_row = 0
         self._keyboard_ts = 0.0                                                    # timestamps for auto-clear
