@@ -23,8 +23,11 @@ class DeviceRegister:
             devs = set(initial)
         else:
             devs = set(cfg.devices.enabled)
-            if not cfg.main.daemon:
+            if cfg.main.daemon:
+                devs -= {"keyboard", "knob", "mouse"}
+            else:
                 devs.add("keyboard")
+
         self._devices = devs
         self._on_add = []
         self._on_remove = []
