@@ -2,8 +2,11 @@
 
 ## 0.4.4
 - Added terminal resize detection and automatic display redraw.
+- Improved startup and terminal cleanup robustness.
 - Fixed daemon mode input device handling.
 - Fixed split bracketed-paste sequence handling.
+- Fixed band display to use main frequency.
+- Improved device cleanup and scheduler shutdown order.
 
 ## 0.4.3
 - Improved cleanup, removed atexit
