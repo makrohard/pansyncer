@@ -140,9 +140,15 @@ class DeviceHandler:
                 self.logger.log(f'mouse fds error: {e}', 'ERROR')
                 self.devices.remove('mouse')
                 mouse_fds = []
-        try:                                                                           # *** CALL SELECT ***
+
+        fds = list(dict.fromkeys(fds))                                                  # De-duplicate FDs
+        if not fds:                                                                     # Nothing to poll
+            time.sleep(self.interval)
+            return False
+
+        try:                                                                            # *** CALL SELECT ***
             rlist, _, _ = select.select(fds, [], [], self.interval)
-        except (KeyboardInterrupt, InterruptedError):                                  # SIGINT
+        except (KeyboardInterrupt, InterruptedError):                                   # SIGINT
             raise
         except OSError as e:
             self.logger.log(f'select error: {e}', 'ERROR')
