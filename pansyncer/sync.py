@@ -37,13 +37,12 @@ class SyncConfig:
     gqrx_timeout:               float         = 2.0
                                                                                         # Sync & buffering
     wait_before_log_rigfreq:    float         = 5.0
-    sync_debounce_time:         float         = 3.0
     nudge_buffer:               int           = 10
     read_buffer_size:           int           = 1024
     max_read_buffer_bytes:      int           = 64 * read_buffer_size
 
 class SyncManager:
-    """ SyncManager handles synchronization between Rig and Gqrx clients. """
+    """SyncManager handles synchronization between Rig and Gqrx clients."""
 
     def __init__(self,
                  cfg,
@@ -64,38 +63,40 @@ class SyncManager:
                 'host'                        : self.cfg.sync.rig_host,
                 'port'                        : self.cfg.sync.rig_port,
                 'sock'                        : None,
+                'connected'                   : False,
                 'recon_interval'              : self.cfg.sync.rig_socket_recon_interval,
                 'recon_timestamp'             : 0.0,
                 'freq_cur'                    : None,
-                'freq_prev'                   : 0,
+                'freq_processed'              : None,
                 'freq_sent'                   : None,
-                'freq_delta'                  : 0,
-                'freq_delta_sent'             : 0,
+                'freq_queued'                 : None,
+                'freq_queued_is_lo'           : False,
                 'freq_query_interval'         : self.cfg.sync.rig_freq_query_interval,
                 'is_busy'                     : None,
                 'send_timestamp'              : 0.0,
                 'timeout'                     : self.cfg.sync.rig_timeout,
                 'recv_buf'                    : bytearray(),
-                'command'                     : None,
+                'query'                       : None,
                 'events'                      : []
             },
             'gqrx': {
                 'host'                        : self.cfg.sync.gqrx_host,
                 'port'                        : self.cfg.sync.gqrx_port,
                 'sock'                        : None,
+                'connected'                   : False,
                 'recon_interval'              : self.cfg.sync.gqrx_socket_recon_interval,
                 'recon_timestamp'             : 0.0,
                 'freq_cur'                    : None,
-                'freq_prev'                   : 0,
+                'freq_processed'              : None,
                 'freq_sent'                   : None,
-                'freq_delta'                  : 0,
-                'freq_delta_sent'             : 0,
+                'freq_queued'                 : None,
+                'freq_queued_is_lo'           : False,
                 'freq_query_interval'         : self.cfg.sync.gqrx_freq_query_interval,
                 'is_busy'                     : None,
                 'send_timestamp'              : 0.0,
                 'timeout'                     : self.cfg.sync.gqrx_timeout,
                 'recv_buf'                    : bytearray(),
-                'command'                     : None,
+                'query'                       : None,
                 'events'                      : []
             }
         }
@@ -117,9 +118,6 @@ class SyncManager:
             self.logger.log(
                 "[LOG ERROR] Rig not configured, but logfile specified. Turning off logging", "ERROR")
 
-                                                                                        # Direct mode - last change wins
-        self._sync_time = 0.0
-        self._sync_lead = None
                                                                                         # Poller for non-blocking I/O
         self._poller = select.poll()
         self._fd_map = {}
@@ -138,55 +136,73 @@ class SyncManager:
             rdo['events'] = []
 
         for fd, flag in events:                                                         # Assign new events to radio{}
-            role, sock = self._fd_map.get(fd, (None, None))
+            role = self._fd_map.get(fd)
             if role:
                 self.radio[role]['events'].append((fd, flag))
 
-        for role, rdo in self.radio.items():                                            ##### Loop per role (rig, gqrx)
+        for role, rdo in self.radio.items():                                            ##### Read / reconnect loop
 
             evs = rdo.get('events', [])
-            if any(flag & (select.POLLHUP | select.POLLERR) for _, flag in evs):        # Handle poll errors
+            if any(flag & (select.POLLHUP | select.POLLERR | select.POLLNVAL)
+                    for _, flag in evs):                                                # Handle poll errors
                 self._cleanup_socket(role)
+                self.reconnect_socket(now, role)                                        # Socket keep-alive
                 continue
             if any(flag & select.POLLIN for _, flag in evs):                            # Read and process incoming data
                 self._process_incoming(role, now)
 
-            if (rdo['freq_cur'] is None
-                    and rdo['command'] is None
-                    and rdo['is_busy'] is None):                                        # Ensure that we have a freq
-                if self.ifreq is not None and role == 'gqrx':
-                    rdo['command'] = b"LNB_LO\n"
-                else:
-                    rdo['command'] = b"f\n"
-
-            self._freq_query(role, now)                                                 # Query frequency
-            self._freq_set(role)                                                        # Set frequency
-
-            if any(flag & select.POLLOUT for _, flag in evs):                           # Write outgoing data
-                self._send_command(role, now)
             self.reconnect_socket(now, role)                                            # Socket keep-alive
             self._freq_check_timeout(role, now)                                         # Reply timeouts
 
+        self._update_sync_state()                                                       # Update sync state (On/Off)
+        self._apply_sync_actions()                                                      # Apply sync actions
+
+        for role, rdo in self.radio.items():                                            ##### Queue frequency queries
+
+            if (rdo['freq_cur'] is None
+                    and rdo['freq_queued'] is None
+                    and rdo['query'] is None
+                    and rdo['is_busy'] is None):                                        # Ensure that we have a freq
+                if self.ifreq is not None and role == 'gqrx':
+                    rdo['query'] = b"LNB_LO\n"
+                else:
+                    rdo['query'] = b"f\n"
+            self._freq_query(role, now)                                                 # Query frequency
+
+        for role, rdo in self.radio.items():                                            ##### Send commands
+            evs = rdo.get('events', [])
+            if any(flag & select.POLLOUT for _, flag in evs):                           # Write outgoing data
+                if not self._check_connect(role):                                       # Check connect result
+                    continue
+                self._send_query(role, now)
                                                                                         ##### Once per tick actions
         self._log_rig_change(self.cfg.sync.wait_before_log_rigfreq, now)                # Log Frequency
         self._update_band()                                                             # Update band name
-        self._apply_sync_actions(now)                                                   # Apply sync actions
-        self._update_sync_state()                                                       # Update sync state (On/Off)
         self._update_ui()                                                               # Update display
 
     def nudge(self, delta_hz):
-        """Adjust frequency by the sum of UP/DOWN commands from input devices received since last command send."""
+        """Queue a live frequency change from keyboard, mouse, or external VFO knob."""
         try:
             # If rig present, nudge rig. If rig not present, nudge gqrx.
             for role in ('rig', 'gqrx'):
                 rdo = self.radio[role]
-                if rdo['sock'] is not None and self.devices.enabled(role):
-                    rdo['freq_delta'] += delta_hz
-                    if abs(rdo['freq_delta']) > self.step.get_step() * self.cfg.sync.nudge_buffer:
-                        rdo['freq_delta'] -= delta_hz
-                    self.logger.log(f"{role.upper()} NUDGE {rdo['freq_delta']}", "DEBUG")
+                if rdo['sock'] is not None and rdo['connected'] and self.devices.enabled(role):
+                    base_freq = self._effective_freq(role)
+                    if base_freq is None:
+                        return
+
+                    new_freq = base_freq + delta_hz
+
+                    if rdo['freq_cur'] is not None:
+                        max_delta = abs(int(self.step.get_step())) * self.cfg.sync.nudge_buffer
+                        if max_delta > 0 and abs(new_freq - rdo['freq_cur']) > max_delta:
+                            self.logger.log(f"{role.upper()} NUDGE BUFFER FULL", "DEBUG")
+                            return
+
+                    if self._queue_set(role, new_freq):
+                        self.logger.log(f"{role.upper()} NUDGE QUEUED {new_freq}", "DEBUG")
                     break
-        except (KeyError, AttributeError, TypeError) as e:
+        except (KeyError, AttributeError, TypeError, ValueError) as e:
             self.logger.log(f"[NUDGE ERROR]: {e}", "CRITICAL")
 
     def get_frequency(self):
@@ -194,11 +210,19 @@ class SyncManager:
         try:
             rig = self.radio['rig']
             gqrx = self.radio['gqrx']
-
-            if rig['freq_cur'] is not None:
+            rig_ok = (
+                    rig['sock'] is not None
+                    and rig['connected']
+                    and rig['freq_cur'] is not None
+            )
+            gqrx_ok = (
+                    gqrx['sock'] is not None
+                    and gqrx['connected']
+                    and gqrx['freq_cur'] is not None
+            )
+            if rig_ok:
                 return rig['freq_cur']
-
-            if gqrx['freq_cur'] is not None:
+            if gqrx_ok:
                 if self.ifreq is not None:
                     return gqrx['freq_cur'] + abs(int(self.ifreq * 1e6))
                 return gqrx['freq_cur']
@@ -211,21 +235,21 @@ class SyncManager:
         """Set absolute frequency (Hz)."""
         try:
             freq_hz = int(round(freq_hz)) if isinstance(freq_hz, float) else int(freq_hz)
-
             if self.ifreq is not None:
                 tgt = 'rig'
             elif role in self.radio:
                 tgt = role
             else:
-                rig_ok = (self.radio['rig']['sock'] is not None) and self.devices.enabled('rig')
-                gqx_ok = (self.radio['gqrx']['sock'] is not None) and self.devices.enabled('gqrx')
+                rig_ok = (self.radio['rig']['sock'] is not None
+                          and self.radio['rig']['connected']
+                          and self.devices.enabled('rig'))
+                gqx_ok = (self.radio['gqrx']['sock'] is not None
+                          and self.radio['gqrx']['connected']
+                          and self.devices.enabled('gqrx'))
                 tgt = 'rig' if rig_ok else ('gqrx' if gqx_ok else None)
-            rdo = self.radio[tgt]
-
-            rdo['freq_delta'] = rdo['freq_delta_sent'] = 0
-            rdo['freq_sent'] = freq_hz
-            rdo['command'] = self._build_cat_cmd(freq_hz)
-            return True
+            if tgt is None:
+                return False
+            return self._queue_set(tgt, freq_hz)
         except (ValueError, TypeError, KeyError) as e:
             self.logger.log(f"SYNC SET FREQ ERROR {e}", "ERROR")
             return False
@@ -249,18 +273,51 @@ class SyncManager:
     def set_sync_mode(self, state):
         """Enable or disable synchronization on user request"""
         self._wanted_sync = state
-        if self.radio['rig']['sock'] is None or self.radio['gqrx']['sock'] is None:
+        if (self.radio['rig']['sock'] is None
+                or not self.radio['rig']['connected']
+                or self.radio['gqrx']['sock'] is None
+                or not self.radio['gqrx']['connected']):
             state = False
         self.sync_on = state
 
     def reconnect_socket(self, now, role):
-        """ If socket not present for registered device, create a new one. """
+        """If socket not present for registered device, create a new one."""
         rdo = self.radio[role]
         if self.devices.enabled(role) and rdo['sock'] is None and now - rdo['recon_timestamp'] > rdo['recon_interval']:
-            rdo['sock'] = self._connect_socket(rdo['host'], rdo['port'])
-            self._register_socket(role, rdo['sock'])
+            rdo.update({                                                                # Reset stale state
+                'connected'                   : False,
+                'freq_cur'                    : None,
+                'freq_processed'              : None,
+                'freq_sent'                   : None,
+                'freq_queued'                 : None,
+                'freq_queued_is_lo'           : False,
+                'is_busy'                     : None,
+                'recv_buf'                    : bytearray(),
+                'query'                       : None,
+                'events'                      : []
+            })
+
+            if self.ifreq is not None and role == 'gqrx':
+                self.radio['rig']['freq_processed'] = None                              # Force LO resync
+
             rdo['recon_timestamp'] = now
+            sock = None
+            try:
+                sock = self._connect_socket(rdo['host'], rdo['port'])
+                self._register_socket(role, sock)
+            except OSError as e:
+                self.logger.log(f"{role.upper()} CONNECT CREATE ERROR {e}", "DEBUG")
+                if sock is not None:
+                    try:
+                        sock.close()
+                    except OSError:
+                        pass
+                rdo['sock'] = None
+                return
+
+            rdo['sock'] = sock
             self.logger.log(f"Created new socket for {role}", "DEBUG")
+
         elif not self.devices.enabled(role) and rdo['sock']:
             self._cleanup_socket(role)
             self.logger.log(f"Destroyed socket for  {role}", "WARNING")
@@ -290,16 +347,17 @@ class SyncManager:
 
             rdo.update({                                                                # Reset status
                 'sock'                        : None,
+                'connected'                   : False,
                 'recon_timestamp'             : 0.0,
                 'freq_cur'                    : None,
-                'freq_prev'                   : 0,
+                'freq_processed'              : None,
                 'freq_sent'                   : None,
-                'freq_delta'                  : 0,
-                'freq_delta_sent'             : 0,
+                'freq_queued'                 : None,
+                'freq_queued_is_lo'           : False,
                 'is_busy'                     : None,
                 'send_timestamp'              : 0.0,
                 'recv_buf'                    : bytearray(),
-                'command'                     : None,
+                'query'                       : None,
                 'events'                      : []
             })
 
@@ -315,15 +373,17 @@ class SyncManager:
     # # # # # # # # # # # # #
 
     def _update_ui(self):
-        """ Write values to user interface periodically """
+        """Write values to user interface periodically"""
         if self.display is None:
             return
         try:
             self.display.set_sync_mode(self.sync_on)
             for role, rdo in self.radio.items():
-                if rdo['sock'] is None:
+                if rdo['sock'] is None or not rdo['connected']:
                     freq = None
+                    sock = None
                 else:
+                    sock = rdo['sock']
                     base = rdo['freq_cur']
                     # We keep the LO_Freq in the gqrx['freq_cur'], but we convert it to main frequency for display
                     if self.ifreq is not None and base is not None and role == 'gqrx':
@@ -331,7 +391,7 @@ class SyncManager:
                     else:
                         freq = base
                 setter = getattr(self.display, f"set_{role}")
-                setter(freq, rdo['sock'])
+                setter(freq, sock)
         except (AttributeError, TypeError, KeyError) as e:
             self.logger.log(f"[DISPLAY ERROR] {e}", "CRITICAL")
 
@@ -341,79 +401,125 @@ class SyncManager:
 
     def _update_sync_state(self):
         """Disable sync on only one active radio; restore if both present, and it has been enabled before."""
-        if any(rdo['sock'] is None for rdo in self.radio.values()):
+        if any(rdo['sock'] is None or not rdo['connected'] for rdo in self.radio.values()):
             self.sync_on = False
         else:
             if self._wanted_sync and not self.sync_on:
                 self.sync_on = True
 
     def _update_band(self):
-        """Update band information if either frequency has changed."""
+        """Update band information."""
         if self.display is None or self.cfg.display.small_display:
             return
-
-        rig = self.radio['rig']
-        gqrx = self.radio['gqrx']
-        rig_changed = rig['freq_cur'] != rig['freq_prev']
-        gqrx_changed = gqrx['freq_cur'] != gqrx['freq_prev']
-
-        if not (rig_changed or gqrx_changed):
-            return
-
         freq_hz = self.get_frequency()
         if freq_hz is None:
             return
-
         band_name = self.bands.band_name(freq_hz / 1_000_000)
         self.display.set_band_name(band_name)
 
-    def _apply_sync_actions(self, now):
-        """ Perform synchronization actions """
+    def _effective_freq(self, role):
+        """Return the newest intended frequency for a radio."""
+        rdo = self.radio[role]
+        if rdo['freq_queued'] is not None:
+            return rdo['freq_queued']
+        if rdo['freq_sent'] is not None:
+            return rdo['freq_sent']
+        return rdo['freq_cur']
+
+    def _confirmed_freq(self, role, freq_hz):
+        """Return True if this radio has confirmed this frequency."""
+        rdo = self.radio[role]
+        return (
+            rdo['freq_cur'] == freq_hz
+            and rdo['freq_sent'] is None
+            and rdo['freq_queued'] is None
+        )
+
+    def _freq_unprocessed(self, role):
+        """Return True if the newest intended frequency has not yet been handled by sync."""
+        freq = self._effective_freq(role)
+        rdo = self.radio[role]
+        return freq is not None and freq != rdo['freq_processed']
+
+    def _queue_set(self, role, freq_hz, is_lo=False, mark_processed=False):
+        """Queue the latest wanted set frequency."""
+        rdo = self.radio[role]
+
+        if rdo['sock'] is None or not rdo['connected'] or not self.devices.enabled(role):
+            return False
+
+        freq_hz = int(freq_hz)
+
+        if mark_processed:
+            rdo['freq_processed'] = freq_hz
+
+        if rdo['freq_sent'] == freq_hz:                                               # Already in flight
+            rdo['freq_queued'] = None
+            rdo['freq_queued_is_lo'] = False
+            rdo['query'] = None                                                       # Drop pending query
+            return True
+
+        rdo['freq_queued'] = freq_hz
+        rdo['freq_queued_is_lo'] = is_lo
+        rdo['query'] = None                                                           # Set overwrites query
+        self.logger.log(f"{role.upper()} SET QUEUED {freq_hz}", "DEBUG")
+        return True
+
+    def _apply_sync_actions(self):
+        """Perform synchronization actions."""
 
         rig = self.radio['rig']
         gqrx = self.radio['gqrx']
-        rig_changed = rig['freq_cur'] != rig['freq_prev']
-        gqrx_changed = gqrx['freq_cur'] != gqrx['freq_prev']
+        rig_changed = self._freq_unprocessed('rig')
+        gqrx_changed = self._freq_unprocessed('gqrx')
 
         if (not self.sync_on                                                            # Run Conditions
                 or rig['sock'] is None
+                or not rig['connected']
                 or not self.devices.enabled('rig')
                 or gqrx['sock'] is None
+                or not gqrx['connected']
                 or not self.devices.enabled('gqrx')
-                or rig['freq_cur'] is None
-                or (gqrx['freq_cur'] is None and self.ifreq is None)):
+                or self._effective_freq('rig') is None
+                or (self._effective_freq('gqrx') is None and self.ifreq is None)):
             return
 
         if self.ifreq is None:                                                          # Direct Mode
-
             if rig_changed:
-                if not (self._sync_lead == 'gqrx' and now - self._sync_time < self.cfg.sync.sync_debounce_time):
-                    self._sync_lead = 'rig'
-                    self._sync_time = now
-                    rig['freq_prev'] = rig['freq_cur']
-                    gqrx['freq_sent'] = rig['freq_cur']
-                    gqrx['command'] = self._build_cat_cmd(rig['freq_cur'])
-                    self.logger.log(f"RIG CHANGE DIRECT SYNC {rig['freq_cur']}", "DEBUG")
+                target_freq = self._effective_freq('rig')
+                if self._effective_freq('gqrx') == target_freq:
+                    if self._confirmed_freq('gqrx', target_freq):
+                        rig['freq_processed'] = target_freq
+                        gqrx['freq_processed'] = target_freq
+                    return
+                if not self._queue_set('gqrx', target_freq, mark_processed=True):
+                    return
+                self.logger.log(f"RIG CHANGE DIRECT SYNC {target_freq}", "DEBUG")
 
             elif gqrx_changed:
-                if not (self._sync_lead == 'rig' and now - self._sync_time < self.cfg.sync.sync_debounce_time):
-                    self._sync_lead = 'gqrx'
-                    self._sync_time = now
-                    gqrx['freq_prev'] = gqrx['freq_cur']
-                    rig['freq_sent'] = gqrx['freq_cur']
-                    rig['command'] = self._build_cat_cmd(gqrx['freq_cur'])
-                    self.logger.log(f"GQRX CHANGE DIRECT SYNC {rig['freq_cur']}", "DEBUG")
+                target_freq = self._effective_freq('gqrx')
+                if self._effective_freq('rig') == target_freq:
+                    if self._confirmed_freq('rig', target_freq):
+                        gqrx['freq_processed'] = target_freq
+                        rig['freq_processed'] = target_freq
+                    return
+                if not self._queue_set('rig', target_freq, mark_processed=True):
+                    return
+                self.logger.log(f"GQRX CHANGE DIRECT SYNC {target_freq}", "DEBUG")
             return
 
-        else:                                                                           # Ifreq mode
-
+        else:                                                                           # iFreq mode
             if rig_changed:
-                lo_freq = rig['freq_cur'] - abs(int(self.ifreq * 1e6))
-                if lo_freq != gqrx['freq_cur']:
-                    rig['freq_prev'] = rig['freq_cur']
-                    gqrx['freq_sent'] = lo_freq
-                    gqrx['command'] = self._build_cat_cmd(lo_freq, is_lo=True)
-                    self.logger.log(f"RIG CHANGE IFREQ SYNC {rig['freq_cur']}", "DEBUG")
+                rig_freq = self._effective_freq('rig')
+                lo_freq = rig_freq - abs(int(self.ifreq * 1e6))
+                if self._effective_freq('gqrx') == lo_freq:
+                    if self._confirmed_freq('gqrx', lo_freq):
+                        rig['freq_processed'] = rig_freq
+                        gqrx['freq_processed'] = lo_freq
+                    return
+                if not self._queue_set('gqrx', lo_freq, is_lo=True, mark_processed=True):
+                    return
+                self.logger.log(f"RIG CHANGE IFREQ SYNC {rig_freq}", "DEBUG")
 
     # # # # # # # # # # # # # # # # # # # # #
     # # #   I/O, Frequency get / set    # # #
@@ -421,64 +527,63 @@ class SyncManager:
 
     @staticmethod
     def _build_cat_cmd(freq, is_lo=False):
-        """Construct CAT command to set Frequency or Local Oscillator."""
+        """Construct CAT query to set Frequency or Local Oscillator."""
         prefix = b"LNB_LO " if is_lo else b"F "
         return prefix + str(freq).encode() + b"\n"
 
-    def _freq_set(self, role):
-        """Set frequency for each role if a delta is queued and device is enabled"""
-        rdo = self.radio[role]
-
-        if (rdo['sock'] is None                                                          # Run conditions
-                or not self.devices.enabled(role)
-                or rdo['is_busy'] is not None
-                or rdo['freq_cur'] is None
-                or not rdo['freq_delta']):
-            return
-
-        base_freq = rdo['freq_sent'] if rdo['freq_sent'] is not None else rdo['freq_cur']
-        new_freq = base_freq + rdo['freq_delta']                                        # FreqSetCmd, overwrites
-        rdo['freq_delta_sent'] = rdo['freq_delta']
-        rdo['freq_sent'] = new_freq
-        rdo['command'] = self._build_cat_cmd(new_freq)
-        self.logger.log(f"{role.upper()} FREQ SET CMD {new_freq}", "DEBUG")
-
     def _freq_query(self, role, now):
-        """ Query frequency  """
+        """Query frequency"""
         rdo = self.radio[role]
 
-        if ((now - rdo['send_timestamp']) < rdo['freq_query_interval']                   # Run conditions
+        if ((now - rdo['send_timestamp']) < rdo['freq_query_interval']                  # Run conditions
                 or rdo['sock'] is None
                 or rdo['is_busy'] is not None
-                or self.ifreq is not None and role == 'gqrx'): # No freq query to gqrx in ifreq mode.
+                or rdo['freq_queued'] is not None
+                or self.ifreq is not None and role == 'gqrx'):                          # No freq query to gqrx in ifreq mode.
             return
 
-        if rdo['command'] is None:                                                       # FreqQueryCmd, not overwriting
+        if rdo['query'] is None:                                                        # FreqQueryCmd, not overwriting
             self.logger.log(f"{role.upper()} FREQ QUERY CMD", "DEBUG")
-            rdo['command'] = b"f\n"
+            rdo['query'] = b"f\n"
 
     def _freq_check_timeout(self, role, now):
-        """ Check command-reply-timeouts """
+        """Check query-reply-timeouts."""
         rdo = self.radio[role]
-        if rdo['is_busy'] is not None:
-            if now - rdo['is_busy'] > rdo['timeout']:
-                self.logger.log(f"[TIMEOUT ERROR] {role.upper()} did not ack in {rdo['timeout']}s", "DEBUG")
-                rdo['is_busy'] = None
-                rdo['freq_sent'] = None
-                rdo['freq_delta_sent'] = 0
-                rdo['freq_delta'] = 0
+        if rdo['is_busy'] is None:
+            return
+        if now - rdo['is_busy'] <= rdo['timeout']:
+            return
+        self.logger.log(f"[TIMEOUT ERROR] {role.upper()} did not ack in {rdo['timeout']}s", "DEBUG")
 
-    def _send_command(self, role, now):
-        """Send pending commands for the specified role when its socket is writable."""
+        if rdo['freq_sent'] is not None:
+            if rdo['freq_processed'] == rdo['freq_sent']:
+                rdo['freq_processed'] = rdo['freq_cur']
+            rdo['freq_sent'] = None
+
+        rdo['recv_buf'] = bytearray()                                                   # Drop stale partial data
+        rdo['is_busy'] = None
+
+    def _send_query(self, role, now):
+        """Send pending querys for the specified role when its socket is writable."""
         rdo = self.radio[role]
+
         if (rdo['sock'] is None                                                         # Run conditions
-                or rdo['command'] is None
+                or not rdo['connected']
                 or rdo['is_busy'] is not None
                 or not self.devices.enabled(role)):
             return
 
+        if rdo['freq_queued'] is not None:                                              # Set has priority
+            query = self._build_cat_cmd(rdo['freq_queued'], is_lo=rdo['freq_queued_is_lo'])
+            is_set = True
+        elif rdo['query'] is not None:
+            query = rdo['query']
+            is_set = False
+        else:
+            return
+
         try:                                                                            # Send to Socket
-            rdo['sock'].sendall(rdo['command'])
+            rdo['sock'].sendall(query)
         except BlockingIOError:
             return
         except OSError as e:
@@ -486,20 +591,27 @@ class SyncManager:
             self._cleanup_socket(role)
             return
 
-        self.logger.log(f"{role.upper()} SEND {rdo['command']}", "DEBUG")
-        rdo['is_busy'] = now                                                            # Set busy flag and command
+        if is_set:
+            rdo['freq_sent'] = rdo['freq_queued']
+            rdo['freq_queued'] = None
+            rdo['freq_queued_is_lo'] = False
+
+        self.logger.log(f"{role.upper()} SEND {query}", "DEBUG")
+        rdo['is_busy'] = now                                                            # Set busy flag
         rdo['send_timestamp'] = now
-        rdo['command'] = None
+        rdo['query'] = None
 
     def _process_incoming(self, role, now):
         """Receive data from Rig/Gqrx and buffer messages."""
         rdo = self.radio[role]
+
         try:                                                                            # Read socket
             data = rdo['sock'].recv(self.cfg.sync.read_buffer_size)
         except OSError as e:
             self.logger.log(f"{role.upper()} RECV ERROR] {e}", "DEBUG")
             self._cleanup_socket(role)
             return
+
         if not data:
             self.logger.log(f"[DEBUG] {role.upper()} SOCKET DIED", "DEBUG")
             self._cleanup_socket(role)
@@ -507,6 +619,7 @@ class SyncManager:
 
         if rdo['is_busy'] is None:                                                      # Got response, but not busy
             self.logger.log(f"{role.upper()} ERROR Response while not busy: {data}", "DEBUG")
+            rdo['recv_buf'] = bytearray()                                               # Drop stale response data
             return
 
         buf = rdo['recv_buf']                                                           # Build buffer and trim it
@@ -517,15 +630,20 @@ class SyncManager:
         parts = buf.split(b'\n')
         complete = parts[:-1]
         incomplete = parts[-1]
+        if not complete:
+            rdo['recv_buf'] = bytearray(incomplete)                                     # Preserve incomplete tail
+            return
+
         for part in complete:
+            part = part.strip()
             if not part:
                 continue
 
             is_error = False
             freq = None
-
             self.logger.log(f"{role.upper()} RECEIVED {part.decode()}", "DEBUG")
-            if part.startswith(b"RPRT"):  # READ REPORT
+
+            if part.startswith(b"RPRT"):                                                # WRITE REPORT
                 try:
                     _, code = part.split(b" ", 1)
                 except ValueError:
@@ -534,25 +652,23 @@ class SyncManager:
                     is_error = True
                     code = None
 
-                if code and code == b"0":                                               ##### Success Report
+                if code and code == b"0":                                                ##### Success Report
                     self.logger.log(f"{role.upper()} RPRT SUCCESS", "DEBUG")
                     if rdo['freq_sent'] is not None:
-                        if role == 'rig' and rdo['freq_sent'] != rdo['freq_cur']:
-                            self._last_rig_change = now
-                            self._rig_reported = False
-                        rdo['freq_prev'] = rdo['freq_cur']                              # Set internal state on success
-                        rdo['freq_cur'] = rdo['freq_sent']
+                        new_freq = rdo['freq_sent']
+                        if new_freq != rdo['freq_cur']:
+                            if role == 'rig':
+                                self._last_rig_change = now
+                                self._rig_reported = False
+                            rdo['freq_cur'] = new_freq
+
                         rdo['freq_sent'] = None
 
-                    if rdo['freq_delta_sent']:
-                        rdo['freq_delta'] -= rdo['freq_delta_sent']
-                        rdo['freq_delta_sent'] = 0
-                    else:
-                        rdo['freq_delta'] = 0
                 else:                                                                   # Error Report
                     is_error = True
                     code_text = code.decode() if code is not None else "UNKNOWN"
                     self.logger.log(f"{role.upper()} ERROR RPRT {code_text}", "DEBUG")
+
             else:
                 try:                                                                    ##### READ FREQUENCY
                     freq = int(part)
@@ -562,24 +678,47 @@ class SyncManager:
                     self.logger.log(f"{role.upper()} ERROR RESPONSE UNKNOWN: {part.decode()}", "DEBUG")
 
             if freq is not None:
-                if freq != rdo['freq_prev']:                                            # New frequency present
+                if freq != rdo['freq_cur']:                                             # New frequency present
                     if role == 'rig':                                                   # Logging
                         self._last_rig_change = now
                         self._rig_reported = False
-                    rdo['freq_prev'] = rdo['freq_cur']                                  # Set frequencies
                     rdo['freq_cur'] = freq
 
-            if is_error:                                                                # Clear sent and delta on error
+            if is_error:                                                                # Clear sent state on error
                 self.logger.log(f"{role.upper()} ERROR IN RECEIVED DATA", "DEBUG")
-                rdo['freq_sent'] = None
-                rdo['freq_delta'] = 0
-
-            rdo['recv_buf'] = bytearray(incomplete)                                     # Preserve incomplete tail
-            rdo['is_busy'] = None                                                       # Clear Busy
+                if rdo['freq_sent'] is not None:
+                    if rdo['freq_processed'] == rdo['freq_sent']:
+                        rdo['freq_processed'] = rdo['freq_cur']
+                    rdo['freq_sent'] = None
+        rdo['recv_buf'] = bytearray(incomplete)                                         # Preserve incomplete tail
+        rdo['is_busy'] = None                                                           # Clear Busy
 
     # # # # # # # # # # # # # #
     # # # Socket Handling # # #
     # # # # # # # # # # # # # #
+
+    def _check_connect(self, role):
+        """Check non-blocking socket connect result."""
+        rdo = self.radio[role]
+        sock = rdo['sock']
+
+        if sock is None:
+            return False
+        if rdo['connected']:
+            return True
+        try:
+            err = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
+        except OSError as e:
+            self.logger.log(f"{role.upper()} CONNECT CHECK ERROR {e}", "DEBUG")
+            self._cleanup_socket(role)
+            return False
+        if err:
+            self.logger.log(f"{role.upper()} CONNECT ERROR {err}", "DEBUG")
+            self._cleanup_socket(role)
+            return False
+        rdo['connected'] = True
+        self.logger.log(f"{role.upper()} CONNECTED", "DEBUG")
+        return True
 
     @staticmethod
     def _connect_socket(host, port):
@@ -594,7 +733,7 @@ class SyncManager:
         """Register a socket with the poller."""
         fd = sock.fileno()
         self._poller.register(fd, select.POLLIN | select.POLLOUT)
-        self._fd_map[fd] = (role, sock)
+        self._fd_map[fd] = role
 
     def _cleanup_socket(self, role):
         """Unregister, close, clear buffer, disable sync."""
@@ -615,12 +754,14 @@ class SyncManager:
 
         rdo.update({                                                                    # reset socket state
             'sock'                        : None,
+            'connected'                   : False,
             'recv_buf'                    : bytearray(),
-            'command'                     : None,
+            'query'                       : None,
             'is_busy'                     : None,
             'freq_sent'                   : None,
-            'freq_delta'                  : 0,
-            'freq_delta_sent'             : 0,
+            'freq_queued'                 : None,
+            'freq_queued_is_lo'           : False,
+            'freq_processed'              : rdo['freq_cur'],
             'events'                      : []
         })
         self.sync_on = False

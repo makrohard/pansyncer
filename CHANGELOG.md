@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0
+- Major internal refactoring of sync.py: simplified sync state and command/response handling.
+- Improved socket reconnect, timeout, and stale-buffer handling.
+
 ## 0.4.4
 - Added terminal resize detection and automatic display redraw.
 - Improved startup and terminal cleanup robustness.
