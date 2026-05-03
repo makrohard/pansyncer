@@ -18,6 +18,7 @@ class MouseState:
         """Scan for input devices supporting wheel or middle-click."""
         found = []
         for path in evdev.list_devices():
+            dev = None
             try:
                 dev = evdev.InputDevice(path)
                 caps = dev.capabilities()
@@ -28,10 +29,16 @@ class MouseState:
                 if has_wheel or has_click:
                     found.append(dev)
                     self.logger.log(f"Mouse found: {dev.name}", "INFO")
+                    dev = None
 
             except (OSError, evdev.UInputError) as e:
                 self.logger.log(f"Failed discovering Mouse: {e}", "ERROR")
-                continue
+            finally:
+                if dev is not None:
+                    try:
+                        dev.close()
+                    except OSError:
+                        pass
         self.mice = found
         if self.display: self.display.set_mouse(bool(self.mice))
 
