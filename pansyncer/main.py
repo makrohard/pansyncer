@@ -27,58 +27,70 @@ class PanSyncer:
 
     def __init__(self, cfg: Config):
         self.cfg = cfg
+        self.is_tty = False
+        self.old_term = None
+        self.devices = None
+        self.display = None
+        self.logger = None
+        self.sync = None
+        self.device_handler = None
 
-        self.is_tty = sys.stdin.isatty() and not self.cfg.main.daemon                   # Check terminal
-        if not self.is_tty:
-            self.cfg.main.daemon = True
+        try:
 
-        self.devices = DeviceRegister(self.cfg)                                         # Register devices
+            self.is_tty = sys.stdin.isatty() and not self.cfg.main.daemon                   # Check terminal
+            if not self.is_tty:
+                self.cfg.main.daemon = True
 
-        if not {'rig', 'gqrx'} & self.devices.list():                                   # Must have at least one radio
-            print("[ERROR] You must specify at least one of --devices r|g")
-            sys.exit(1)
+            self.devices = DeviceRegister(self.cfg)                                         # Register devices
 
-        if self.cfg.main.daemon:                                                        # Display setup
-            self.display = None
-        else:
-            self.display = Display(self.cfg,
-                                   self.devices,
-                                   is_tty=self.is_tty)
+            if not {'rig', 'gqrx'} & self.devices.list():                                   # Must have at least one radio
+                print("[ERROR] You must specify at least one of --devices r|g")
+                sys.exit(1)
 
-        self.logger = Logger(name=__name__,                                             # User Interface Logger
-                             display=self.display,
-                             level=self.cfg.main.log_level,
-                             logfile_path=self.cfg.main.logfile_path)
-        self.devices.logger = self.logger
+            if self.cfg.main.daemon:                                                        # Display setup
+                self.display = None
+            else:
+                self.display = Display(self.cfg,
+                                       self.devices,
+                                       is_tty=self.is_tty)
 
-        if self.cfg.main.ifreq is not None:                                             # Mode setup
-            if self.display:
-                self.display.set_mode(" iFreq")
-                self.display.set_ifreq(self.cfg.main.ifreq)
-        else:
-            if self.display: self.display.set_mode("Direct")
+            self.logger = Logger(name=__name__,                                             # User Interface Logger
+                                 display=self.display,
+                                 level=self.cfg.main.log_level,
+                                 logfile_path=self.cfg.main.logfile_path)
+            self.devices.logger = self.logger
 
-        self.step = StepController()                                                    # Step setup
+            if self.cfg.main.ifreq is not None:                                             # Mode setup
+                if self.display:
+                    self.display.set_mode(" iFreq")
+                    self.display.set_ifreq(self.cfg.main.ifreq)
+            else:
+                if self.display: self.display.set_mode("Direct")
 
-        self.sync = SyncManager(self.cfg,                                               # Sync manager
-                                self.devices,
-                                self.step,
-                                display=self.display)
+            self.step = StepController()                                                    # Step setup
 
-        self.device_handler = DeviceHandler(                                            # Device handler
-            cfg = self.cfg,
-            is_tty = self.is_tty,
-            devices = self.devices,
-            logger = self.logger,
-            sync = self.sync,
-            step = self.step,
-            display = self.display,
-            keyboard = None)
+            self.sync = SyncManager(self.cfg,                                               # Sync manager
+                                    self.devices,
+                                    self.step,
+                                    display=self.display)
 
-        self.old_term = None                                                           # Setup Terminal
-        self._setup_terminal()
-        if self.is_tty:
-            self.logger.log("\033[1mWelcome to PanSyncer, press \033[96m?\033[0;1m for help.\033[0m", "INFO")
+            self.device_handler = DeviceHandler(                                            # Device handler
+                cfg = self.cfg,
+                is_tty = self.is_tty,
+                devices = self.devices,
+                logger = self.logger,
+                sync = self.sync,
+                step = self.step,
+                display = self.display,
+                keyboard = None)
+
+            self.old_term = None                                                           # Setup Terminal
+            self._setup_terminal()
+            if self.is_tty:
+                self.logger.log("\033[1mWelcome to PanSyncer, press \033[96m?\033[0;1m for help.\033[0m", "INFO")
+        except BaseException:
+            self.cleanup()
+            raise
 
     def main_loop(self):                                                               ##### MAIN LOOP #####
         """Main loop, handling device input, display, and sync."""
@@ -97,32 +109,49 @@ class PanSyncer:
 
     def cleanup(self):
         """Shut down sync manager and restore terminal settings."""
-        try:
-            self.device_handler.cleanup()
-        except Exception as e:
-            self.logger.log(f"device_handler shutdown error: {e}", "ERROR")
-        try:
-            self.sync.shutdown()
-        except Exception as e:
-            self.logger.log(f"sync shutdown error: {e}", "ERROR")
-        try:
-            if self.display:
-                self.display.cleanup()
-        except Exception:
-            pass
-        try:
-            self.logger.close()
-        except Exception:
-            pass
+        device_handler = getattr(self, "device_handler", None)
+        sync = getattr(self, "sync", None)
+        display = getattr(self, "display", None)
+        logger = getattr(self, "logger", None)
+        is_tty = getattr(self, "is_tty", False)
+        old_term = getattr(self, "old_term", None)
 
-        if self.is_tty:
+        if device_handler:
+            try:
+                device_handler.cleanup()
+            except Exception as e:
+                if logger:
+                    logger.log(f"device_handler shutdown error: {e}", "ERROR")
+        if sync:
+            try:
+                sync.shutdown()
+            except Exception as e:
+                if logger:
+                    logger.log(f"sync shutdown error: {e}", "ERROR")
+        try:
+            if display:
+                display.cleanup()
+            else:
+                sys.stdout.write("\033[?25h\033[?1049l")
+                sys.stdout.flush()
+        except Exception:
+            pass
+        if is_tty:
             try:
                 sys.stdout.write("\033[?1004l\033[?2004l")                                  # disable focus and paste
                 sys.stdout.flush()
             except Exception:
                 pass
-            if self.old_term is not None:                                                   # reset terminal
-                termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, self.old_term)
+            if old_term is not None:
+                try:
+                    termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, old_term)      # reset terminal
+                except Exception:
+                    pass
+        if logger:
+            try:
+                logger.close()
+            except Exception:
+                pass
 
     def _setup_terminal(self):                                                              # Setup terminal
         """Enable raw (cbreak) mode on stdin if running in a TTY."""

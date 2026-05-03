@@ -1,7 +1,7 @@
 # Changelog
 
 ## 0.4.3
-- Removed atexit (no advantage over existing cleanup)
+- Shutdown via cleanup, not atexit
 - Fixed input device FD leaks for mouse and knob scanning.
 - Added bracketed paste handling to prevent pasted terminal text from triggering commands.
 - Improved reconnect backoff by allowing tasks to report failure.
