@@ -128,14 +128,6 @@ class PanSyncer:
             except Exception as e:
                 if logger:
                     logger.log(f"sync shutdown error: {e}", "ERROR")
-        try:
-            if display:
-                display.cleanup()
-            else:
-                sys.stdout.write("\033[?25h\033[?1049l")
-                sys.stdout.flush()
-        except Exception:
-            pass
         if is_tty:
             try:
                 sys.stdout.write("\033[?1004l\033[?2004l")                                  # disable focus and paste
@@ -147,6 +139,14 @@ class PanSyncer:
                     termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, old_term)      # reset terminal
                 except Exception:
                     pass
+        try:
+            if display:
+                display.cleanup()
+            else:
+                sys.stdout.write("\033[?25h\033[?1049l")
+                sys.stdout.flush()
+        except Exception:
+            pass
         if logger:
             try:
                 logger.close()
