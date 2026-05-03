@@ -21,6 +21,7 @@ class KeyboardController:
         self._fd      = sys.stdin.fileno()
         self.focused  = True
         self._paste_mode = False
+        self._input_buf = bytearray()
 
     def get_fd(self):
         """Return file descriptor."""
@@ -28,46 +29,65 @@ class KeyboardController:
 
     def read_stdin(self, fd, now):
         """ Read raw data from stdin do detect Escape-Sequences """
-        data = os.read(fd, 32)                                                    # read up to 32 bytes
+        self._input_buf.extend(os.read(fd, 32))                                 # read up to 32 bytes
         i = 0
+        data = self._input_buf
         l = len(data)
         while i < l:
-            if data.startswith(b'\x1b[200~', i):                                 # bracketed paste start
-                self._paste_mode = True
-                i += 6
-                continue
-            if data.startswith(b'\x1b[201~', i):                                 # bracketed paste end
-                self._paste_mode = False
-                i += 6
-                continue
-            if self._paste_mode:                                                        # ignore pasted text
+            remaining = l - i
+            if data[i] == 0x1b:
+                if remaining < 6 and (                                                 # keep incomplete paste sequence
+                        b'\x1b[200~'.startswith(bytes(data[i:])) or
+                        b'\x1b[201~'.startswith(bytes(data[i:]))):
+                    break
+
+                if data.startswith(b'\x1b[200~', i):                           # bracketed paste start
+                    self._paste_mode = True
+                    i += 6
+                    continue
+                if data.startswith(b'\x1b[201~', i):                           # bracketed paste end
+                    self._paste_mode = False
+                    i += 6
+                    continue
+                if remaining < 3:                                                     # keep incomplete ESC sequence
+                    break
+
+                if data[i + 1] == ord('['):                                           # look for ESC sequences
+                    code = data[i + 2]
+                    if code == ord('I'):
+                        self.focused = True                                           # Focus IN
+                        self.logger.log("Window got focus", "DEBUG")
+                    elif code == ord('O'):
+                        self.focused = False                                          # Focus Out
+                        self.logger.log("Window Lost focus", "DEBUG")
+                    elif code == ord('A'):                                            # Up arrow
+                        # Some terminals bind mouse-wheel to up/down, so we do a time-based debounce on arrow keys.
+                        if not (self.mouse and (
+                                now - getattr(self.mouse, 'last_scroll_time', 0) < (self.interval * 4))):
+                            if self.handle_events('+') == 'quit':
+                                del data[:i + 3]
+                                return True
+                    elif code == ord('B'):                                            # Down arrow
+                        if not (self.mouse and (
+                                now - getattr(self.mouse, 'last_scroll_time', 0) < (self.interval * 4))):
+                            if self.handle_events('-') == 'quit':
+                                del data[:i + 3]
+                                return True
+                    i += 3                                                            # advance past the CSI triplet
+                    continue
+
+            if self._paste_mode:                                                      # ignore pasted text
                 i += 1
                 continue
-            if data[i] == 0x1b and i+2 < l and data[i+1] == ord('['):                   # look for ESC sequences
-                code = data[i+2]
-                if code == ord('I'):
-                    self.focused = True                                                 # Focus IN
-                    self.logger.log("Window got focus", "DEBUG")
-                elif code == ord('O'):
-                    self.focused = False                                                # Focus Out
-                    self.logger.log("Window Lost focus", "DEBUG")
-                elif code == ord('A'):                                                  # Up arrow
-                    # Some terminals bind mouse-wheel to up/down, so we do a time-based debounce on arrow keys.
-                    if not (self.mouse and (
-                            now - getattr(self.mouse, 'last_scroll_time', 0) < (self.interval * 4))):
-                        if self.handle_events('+') == 'quit':
-                            return True
-                elif code == ord('B'):                                                  # Down arrow
-                    if not (self.mouse and (
-                            now - getattr(self.mouse, 'last_scroll_time', 0) < (self.interval * 4))):
-                        if self.handle_events('-') == 'quit':
-                            return True
-                i += 3 # advance past the CSI triplet
-            else:
-                ch = chr(data[i]) # normal byte – process as character
-                if self.handle_events(ch) == "quit":
-                    return True
-                i += 1
+
+            ch = chr(data[i])                                                         # normal byte – process as character
+            if self.handle_events(ch) == "quit":
+                del data[:i + 1]
+                return True
+            i += 1
+
+        del data[:i]
+        return False
 
     def handle_events(self, key: str = None):
         """Parse a key press and execute the corresponding action."""
