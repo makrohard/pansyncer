@@ -150,8 +150,6 @@ class SyncManager:
                 continue
             if any(flag & select.POLLIN for _, flag in evs):                            # Read and process incoming data
                 self._process_incoming(role, now)
-            if any(flag & select.POLLOUT for _, flag in evs):                           # Write outgoing data
-                self._send_command(role, now)
 
             if rdo['freq_cur'] is None and rdo['command'] is None:                      # Ensure that we have a freq
                 if self.ifreq is not None and role == 'gqrx':
@@ -161,6 +159,9 @@ class SyncManager:
 
             self._freq_query(role, now)                                                 # Query frequency
             self._freq_set(role)                                                        # Set frequency
+
+            if any(flag & select.POLLOUT for _, flag in evs):                           # Write outgoing data
+                self._send_command(role, now)
             self.reconnect_socket(now, role)                                            # Socket keep-alive
             self._freq_check_timeout(role, now)                                         # Reply timeouts
 
