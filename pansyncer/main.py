@@ -89,7 +89,7 @@ class PanSyncer:
                     if self.display:
                         self.display.log("[QUIT] shutting down...")
                         self.display.draw(now)
-                        break
+                    break
                 self.sync.tick(now)
                 if self.display: self.display.draw(now)
         except (KeyboardInterrupt, InterruptedError, EOFError):
