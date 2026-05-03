@@ -3,6 +3,7 @@ pansyncer config.py
 Central configuration loader that uses per-module config classes
 """
 
+import sys
 import tomllib
 from dataclasses import dataclass
 from typing import Optional
@@ -54,7 +55,11 @@ class Config:
             with open(path, 'rb') as f:
                 data = tomllib.load(f)
         except FileNotFoundError:
-            data = {} # FIXME log config file not found error
+            data = {}                                                                   # Config file is optional, use defaults
+        except tomllib.TOMLDecodeError as e:
+            print(f"[CONFIG ERROR] Invalid TOML FILE {path}: {e}", file=sys.stderr)
+            data = {}
+
                                                                                         # overlay file data
         for section_name in ('main', 'sync', 'devices', 'display', 'rigcheck', 'reconnect_scheduler'):
             section_data = data.get(section_name, {})
