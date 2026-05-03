@@ -357,7 +357,7 @@ class SyncManager:
         if not (rig_changed or gqrx_changed):
             return
 
-        freq_hz = rig['freq_cur'] or gqrx['freq_cur']
+        freq_hz = self.get_frequency()
         if freq_hz is None:
             return
 
