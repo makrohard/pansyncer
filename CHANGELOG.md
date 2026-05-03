@@ -7,6 +7,7 @@
 - Fixed split bracketed-paste sequence handling.
 - Fixed band display to use main frequency.
 - Improved device cleanup and scheduler shutdown order.
+- Improved CAT command scheduling to avoid sending while busy.
 
 ## 0.4.3
 - Improved cleanup, removed atexit
