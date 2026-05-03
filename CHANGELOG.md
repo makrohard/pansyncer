@@ -1,4 +1,11 @@
 # Changelog
+
+## 0.4.3
+- Removed atexit (no advantage over existing cleanup)
+- Fixed input device FD leaks for mouse and knob scanning.
+- Added bracketed paste handling to prevent pasted terminal text from triggering commands.
+- Improved reconnect backoff by allowing tasks to report failure.
+
 ## 0.4.2
 - Fixed frequency logging via -l/--log.
 - Fixed delayed rig frequency logging and timestamps.
