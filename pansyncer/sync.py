@@ -111,11 +111,11 @@ class SyncManager:
         atexit.register(self.logger.close)
                                                                                         # Frequency Logger
         self.log_file = None
+        self._last_rig_change = None
+        self._rig_reported = True
         if self.devices.enabled('rig'):
             self._init_log(self.cfg.sync.freq_log_path)
-            self._last_rig_change = None
-            self._rig_reported = True
-        else:
+        elif self.cfg.sync.freq_log_path:
             self.logger.log(
                 "[LOG ERROR] Rig not configured, but logfile specified. Turning off logging", "ERROR")
 
