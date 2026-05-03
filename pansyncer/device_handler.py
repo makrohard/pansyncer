@@ -75,34 +75,41 @@ class DeviceHandler:
 
     def cleanup(self):
         """Release resources & stop background activities."""
-        if self._rigchk:
-            try:
-                self._rigchk.cleanup()
-            except Exception as e:
-                self.logger.log(f'rigchk cleanup error: {e}', 'ERROR')
-            finally:
-                self._rigchk = None
-
-        if self._knob:
-            try:
-                self._knob.disconnect()
-            except Exception as e:
-                self.logger.log(f'knob disconnect error: {e}', 'ERROR')
-            finally:
-                self._knob = None
-
-        if self._mouse:
-            try:
-                self._mouse.disconnect()
-            except Exception as e:
-                self.logger.log(f'mouse disconnect error: {e}', 'ERROR')
-            finally:
-                self._mouse = None
-
         try:
             self.scheduler.shutdown(wait=False)
         except Exception as e:
             self.logger.log(f'scheduler shutdown error: {e}', 'ERROR')
+
+        def cleanup(self):
+            """Release resources & stop background activities."""
+            try:
+                self.scheduler.shutdown(wait=False)
+            except Exception as e:
+                self.logger.log(f'scheduler shutdown error: {e}', 'ERROR')
+
+            if self._rigchk:
+                try:
+                    self._rigchk.cleanup()
+                except Exception as e:
+                    self.logger.log(f'rigchk cleanup error: {e}', 'ERROR')
+                finally:
+                    self._rigchk = None
+
+            if self._knob:
+                try:
+                    self._knob.disconnect()
+                except Exception as e:
+                    self.logger.log(f'knob disconnect error: {e}', 'ERROR')
+                finally:
+                    self._knob = None
+
+            if self._mouse:
+                try:
+                    self._mouse.disconnect()
+                except Exception as e:
+                    self.logger.log(f'mouse disconnect error: {e}', 'ERROR')
+                finally:
+                    self._mouse = None
                                                                                         ##### INTERNAL
 
     def _register_hooks(self):                                                          # Register hooks
