@@ -8,7 +8,6 @@ Does periodic connection checks, and input event polling.
 import time
 import select
 import io
-import atexit
 
 from pansyncer.rigcheck import RigChecker
 from pansyncer.keyboard import KeyboardController
@@ -51,7 +50,6 @@ class DeviceHandler:
         self.scheduler = ReconnectScheduler(                                            # Reconnection scheduler
             self.cfg,
             self.logger)
-        atexit.register(self.scheduler.shutdown)
 
         if self.devices.enabled('rig') and not self.cfg.main.no_auto_rig:
             self._on_rig_added('rig')
@@ -167,7 +165,6 @@ class DeviceHandler:
     def knob(self):
         if self._knob is None and self.devices.enabled('knob'):
             self._knob = KnobController(self.cfg, self.logger, self.display)
-            atexit.register(self._knob.disconnect)
             try:
                 self._knob.ensure_connected()
                 self.scheduler.register(self._knob.ensure_connected, tag='knob', backoff=True)
@@ -180,7 +177,6 @@ class DeviceHandler:
     def mouse(self):
         if self._mouse is None and self.devices.enabled('mouse'):
             self._mouse = MouseState(time.monotonic(), self.logger, self.display)
-            atexit.register(self._mouse.disconnect)
             try:
                 self._mouse.ensure_connected()
                 self.scheduler.register(self._mouse.ensure_connected, tag='mouse', backoff=True)
@@ -198,7 +194,6 @@ class DeviceHandler:
                 display=self.display,
                 auto_start=not self.cfg.main.no_auto_rig
             )
-            atexit.register(self._rigchk.cleanup)
             if self.display:
                 self.display.rigchk = self._rigchk
             try:
