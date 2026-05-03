@@ -106,9 +106,18 @@ class KeyboardController:
                                                                                        # Switch sync ON
         elif key == '1':
 
-            rig_ok = (self.sync.radio['rig']['sock'] is not None) and self.devices.enabled('rig')
-            gqrx_ok = (self.sync.radio['gqrx']['sock'] is not None) and self.devices.enabled('gqrx')
-
+            rig = self.sync.radio['rig']
+            gqrx = self.sync.radio['gqrx']
+            rig_ok = (
+                    rig['sock'] is not None
+                    and rig['connected']
+                    and self.devices.enabled('rig')
+            )
+            gqrx_ok = (
+                    gqrx['sock'] is not None
+                    and gqrx['connected']
+                    and self.devices.enabled('gqrx')
+            )
             if rig_ok and gqrx_ok:
                 self.sync.set_sync_mode(True)
                 if self.display: self.display.set_sync_mode(True)
@@ -119,7 +128,6 @@ class KeyboardController:
                     self.display.set_sync_mode(False)
                 self.logger.log('Cannot enable sync – both Rig and Gqrx must be connected.', 'ERROR')
                 beep()
-
             return None
                                                                                         # Switch sync OFF
         if key == '0':
