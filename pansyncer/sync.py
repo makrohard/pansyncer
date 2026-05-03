@@ -271,10 +271,10 @@ class SyncManager:
                     self.log_file.close()
                 except (OSError, ValueError):
                     pass
-                try:
-                    self.logger.close()
-                except Exception:
-                    pass
+            try:
+                self.logger.close()
+            except Exception:
+                pass
 
         if role not in self.radio:                                                      ##### Per role shutdown
             keys = list(self.radio.keys())
