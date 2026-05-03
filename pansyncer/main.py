@@ -200,11 +200,12 @@ def main():
     """PanSyncer lifecycle"""
     args = PanSyncer.parse_args()
     cfg = Config.from_args_and_file(args)
-    app = PanSyncer(cfg)
     try:
+        app = PanSyncer(cfg)
         app.main_loop()
     finally:
-        app.cleanup()
+        if app is not None:
+            app.cleanup()
 
 if __name__ == "__main__":
     main()
