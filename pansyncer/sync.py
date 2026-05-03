@@ -11,7 +11,6 @@ Buffers and limits device input if unable to send immediately.
 import socket
 import select
 import time
-import atexit
 from dataclasses import dataclass
 from typing import Optional
 from pansyncer.logger import Logger
@@ -108,7 +107,6 @@ class SyncManager:
                              display=self.display,
                              level=self.cfg.sync.log_level,
                              logfile_path=self.cfg.sync.logfile_path)
-        atexit.register(self.logger.close)
                                                                                         # Frequency Logger
         self.log_file = None
         self._last_rig_change = None
