@@ -9,7 +9,6 @@ import threading
 import os
 import signal
 import re
-import atexit
 from dataclasses import dataclass
 from typing import Optional
 from pansyncer.logger import Logger
@@ -37,7 +36,6 @@ class RigChecker:
                              display=self.display,
                              level=self.cfg.rigcheck.log_level,
                              logfile_path=self.cfg.rigcheck.logfile_path)
-        atexit.register(self.logger.close)
 
     def check_rig(self):
         """
