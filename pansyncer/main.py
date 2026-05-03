@@ -112,7 +112,7 @@ class PanSyncer:
             self.logger.log(f"sync shutdown error: {e}", "ERROR")
         if self.is_tty:
             try:
-                sys.stdout.write("\033[?1004l")                                             # disable focus in/out evs
+                sys.stdout.write("\033[?1004l\033[?2004l")                                  # disable focus and paste
                 sys.stdout.flush()
             except Exception:
                 pass
@@ -134,7 +134,7 @@ class PanSyncer:
             fd = sys.stdin.fileno()
             self.old_term = termios.tcgetattr(fd)
             tty.setcbreak(fd)
-            sys.stdout.write("\033[?1004h") # enable focus in/out events
+            sys.stdout.write("\033[?1004h\033[?2004h") # enable focus events and bracketed paste
             sys.stdout.flush()
         else:
             self.cfg.main.daemon= True

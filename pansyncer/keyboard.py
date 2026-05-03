@@ -20,6 +20,7 @@ class KeyboardController:
         self.mouse    = mouse
         self._fd      = sys.stdin.fileno()
         self.focused  = True
+        self._paste_mode = False
 
     def get_fd(self):
         """Return file descriptor."""
@@ -31,6 +32,17 @@ class KeyboardController:
         i = 0
         l = len(data)
         while i < l:
+            if data.startswith(b'\x1b[200~', i):                                 # bracketed paste start
+                self._paste_mode = True
+                i += 6
+                continue
+            if data.startswith(b'\x1b[201~', i):                                 # bracketed paste end
+                self._paste_mode = False
+                i += 6
+                continue
+            if self._paste_mode:                                                        # ignore pasted text
+                i += 1
+                continue
             if data[i] == 0x1b and i+2 < l and data[i+1] == ord('['):                   # look for ESC sequences
                 code = data[i+2]
                 if code == ord('I'):
