@@ -3,6 +3,7 @@
 ## 0.4.4
 - Added terminal resize detection and automatic display redraw.
 - Fixed daemon mode input device handling.
+- Fixed split bracketed-paste sequence handling.
 
 ## 0.4.3
 - Improved cleanup, removed atexit
