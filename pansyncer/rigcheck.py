@@ -173,7 +173,7 @@ class RigChecker:
                     except Exception:
                         pass
                 self._proc = None
-            try:
-                self.logger.close()
-            except Exception:
-                pass
+        try:
+            self.logger.close()
+        except Exception:
+            pass
