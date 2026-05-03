@@ -1,7 +1,11 @@
 # Changelog
 
+## 0.4.4
+- Added terminal resize detection and automatic display redraw.
+- Fixed daemon mode input device handling.
+
 ## 0.4.3
-- Shutdown via cleanup, not atexit
+- Improved cleanup, removed atexit
 - Fixed input device FD leaks for mouse and knob scanning.
 - Added bracketed paste handling to prevent pasted terminal text from triggering commands.
 - Improved reconnect backoff by allowing tasks to report failure.
