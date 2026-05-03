@@ -11,7 +11,6 @@ from argparse import RawTextHelpFormatter
 import sys
 import tty
 import termios
-import atexit
 
 from pansyncer.config import Config
 from pansyncer.device_register import DeviceRegister
@@ -45,14 +44,12 @@ class PanSyncer:
             self.display = Display(self.cfg,
                                    self.devices,
                                    is_tty=self.is_tty)
-            atexit.register(self.display.cleanup)
 
         self.logger = Logger(name=__name__,                                             # User Interface Logger
                              display=self.display,
                              level=self.cfg.main.log_level,
                              logfile_path=self.cfg.main.logfile_path)
         self.devices.logger = self.logger
-        atexit.register(self.logger.close)
 
         if self.cfg.main.ifreq is not None:                                             # Mode setup
             if self.display:
@@ -67,7 +64,6 @@ class PanSyncer:
                                 self.devices,
                                 self.step,
                                 display=self.display)
-        atexit.register(self.sync.shutdown)
 
         self.device_handler = DeviceHandler(                                            # Device handler
             cfg = self.cfg,
@@ -78,7 +74,6 @@ class PanSyncer:
             step = self.step,
             display = self.display,
             keyboard = None)
-        atexit.register(self.device_handler.cleanup)
 
         self.old_term = None                                                           # Setup Terminal
         self._setup_terminal()
