@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.1
+- Fixed iFreq GQRX-only tuning to send LNB_LO instead of normal frequency commands.
+- Fixed small/full display toggle redraw state.
+- Minor:
+  - Improved rigctld command parsing with shlex and normalized configured TCP port handling.
+  - Improved keyboard CSI escape sequence handling.
+  - Improved mouse disconnect logging.
+  - Updated README descriptions for iFreq and standalone mode behavior.
+
 ## 0.5.0
 - Major internal refactoring of sync.py: simplified sync state and command/response handling.
 - Improved socket reconnect, timeout, and stale-buffer handling.
