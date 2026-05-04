@@ -19,9 +19,10 @@ interval                   = 0.1                        # Main loop throttle (ap
 [rigcheck]                                              ### Configure hamlib
 log_level                  = "INFO"                     # DEBUG will show reconnect info
 logfile_path               = ""
-                                                        ##### Full command to launch rigctld. -t will be overwritten
+                                                        ##### Full command to launch rigctld.
                                                         # if launched with  no_auto_rig = false.
                                                         # 12345 is xmlprc port of FlRig
+                                                        #  -t /--port will be overwritten with rig_port specified below
 hamlib_command             = "rigctld -m 4 -r 127.0.0.1:12345 -t 4532"
 hamlib_remote_ip           = "127.0.0.1"                # IP address where rigctld listens
 

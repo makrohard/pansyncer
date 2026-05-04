@@ -9,6 +9,7 @@ import threading
 import os
 import signal
 import re
+import shlex
 from dataclasses import dataclass
 from typing import Optional
 from pansyncer.logger import Logger
@@ -91,9 +92,9 @@ class RigChecker:
 
             self.logger.log(f"Launching rigctld on port {self.port}", "INFO")
 
-            cmd = self.cfg.rigcheck.hamlib_command                                      # Hamlib command
-            cmd = re.sub(r'(-t)\s*\d+', rf'\1 {self.cfg.sync.rig_port}', cmd) # use actual rig port
-            cmd = cmd.split()
+            cmd = shlex.split(self.cfg.rigcheck.hamlib_command)                         # Hamlib command
+            cmd = self._set_rigctld_port(cmd, self.cfg.sync.rig_port)                   # use actual rig port
+
                                                                                         # Launch rigctld
             self._proc = subprocess.Popen(
                 cmd,
@@ -144,6 +145,27 @@ class RigChecker:
                 self.logger.log(f"RIGCHECK error closing socket: {e}", "DEBUG")
         finally:
             self._sock = None
+
+    @staticmethod
+    def _set_rigctld_port(args, port):
+        """Remove rigctld TCP port options and append the configured port."""
+        out = []
+        skip_next = False
+
+        for arg in args:
+            if skip_next:
+                skip_next = False
+                continue
+            if arg in ('-t', '--port'):
+                skip_next = True
+                continue
+            if arg.startswith('-t') and len(arg) > 2:
+                continue
+            if arg.startswith('--port='):
+                continue
+            out.append(arg)
+        out.extend(['-t', str(port)])
+        return out
 
     def cleanup(self):
         """ Terminate rigctld subprocess and close socket on shutdown. """
