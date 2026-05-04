@@ -325,6 +325,9 @@ frequency to the RIG frequency again. When in sync, "Hardware freq" will always 
 In iFreq Mode, GQRX follows the Rig by changing GQRX's LNB_LO / hardware frequency.
 Changes in GQRX are not synchronized back to the Rig.
 
+If iFreq mode is used with Gqrx only, PanSyncer acts as an LO-only controller. Keyboard, mouse and VFO knob input change
+Gqrx's `LNB_LO` / hardware frequency, not the normal Gqrx frequency.
+
 ##### Initial Synchronization for GQRX in iFreq mode
 
 In order to synchronize GQRX initially in iFreq Mode, you will have to set the Local Oscillator Frequency
