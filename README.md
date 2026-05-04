@@ -283,7 +283,10 @@ bidirectional, allowing both radios to be directly tuned while staying synchroni
 **Activating only one radio or deactivating sync will use that mode.**  
 Synchronization may be switched off, as well as one of the two radios. The input devices will still work. That way it is
 possible to use PanSyncer to couple your external VFO Knob to your radio - or just use mouse or keyboard to change the
-frequency. If Rig is present, it will always have priority (even when disconnected).
+frequency. Input devices tune the first available connected radio. If Rig is connected, it has priority. Otherwise,
+GQRX is used.
+
+
 
 #### iFreq Mode
 
@@ -299,7 +302,8 @@ offset any time by right-clicking the highest digit in the `Receiver Options` wi
 Changing the GQRX main frequency however, will throw you out of sync. If that happens, just turn the GQRX main
 frequency to the RIG frequency again. When in sync, "Hardware freq" will always match the iFreq.
 
-In iFreq Mode, RIG will sync to GQRX, but not the other way round.
+In iFreq Mode, GQRX follows the Rig by changing GQRX's LNB_LO / hardware frequency.
+Changes in GQRX are not synchronized back to the Rig.
 
 ##### Initial Synchronization for GQRX in iFreq mode
 
@@ -432,7 +436,6 @@ Make sure, that use your Device Name, ifVendor and idProduct.
 KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="Wired KeyBoard Consumer Control", ATTRS{idVendor}=="05ac", ATTRS{idProduct}=="0202", GROUP="input", MODE="0660"
 KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="LCTECH LCKEY", ATTRS{idVendor}=="1189", ATTRS{idProduct}=="8890", GROUP="input", MODE="0660"
 KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="413d:553a", ATTRS{idVendor}=="413d", ATTRS{idProduct}=="553a", GROUP="input", MODE="0660"
-
 ```
 Reload the udev rules to apply the changes:
 ```
