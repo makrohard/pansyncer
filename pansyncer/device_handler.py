@@ -8,6 +8,7 @@ Does periodic connection checks, and input event polling.
 import time
 import select
 import io
+import threading
 
 from pansyncer.rigcheck import RigChecker
 from pansyncer.keyboard import KeyboardController
@@ -33,6 +34,7 @@ class DeviceHandler:
         self._rigchk = None                                                             # Device controller references
         self._knob = None
         self._mouse = None
+        self._lifecycle_lock = threading.RLock()
                                                                                         # Keyboard (stdin)
         if self.keyboard is None and self.devices.enabled('keyboard'):
             self.keyboard = KeyboardController(
@@ -170,13 +172,34 @@ class DeviceHandler:
                     self.logger.log(f'mouse handler error: {e}', 'ERROR')
         return False
 
+    def _ensure_knob_connected(self):
+        """Reconnect knob only while it is still enabled and registered."""
+        with self._lifecycle_lock:
+            if not self.devices.enabled('knob') or self._knob is None:
+                return False
+            return self._knob.ensure_connected()
+
+    def _ensure_mouse_connected(self):
+        """Reconnect mouse only while it is still enabled and registered."""
+        with self._lifecycle_lock:
+            if not self.devices.enabled('mouse') or self._mouse is None:
+                return False
+            return self._mouse.ensure_connected()
+
+    def _check_rig_connected(self):
+        """Check rig only while it is still enabled and registered."""
+        with self._lifecycle_lock:
+            if not self.devices.enabled('rig') or self._rigchk is None:
+                return False
+            return self._rigchk.check_rig()
+
     @property                                                                         ##### Properties
     def knob(self):
         if self._knob is None and self.devices.enabled('knob'):
             self._knob = KnobController(self.cfg, self.logger, self.display)
             try:
                 self._knob.ensure_connected()
-                self.scheduler.register(self._knob.ensure_connected, tag='knob', backoff=True)
+                self.scheduler.register(self._ensure_knob_connected, tag='knob', backoff=True)
             except (OSError, IOError, TimeoutError) as e:
                 self._knob = None
                 self.logger.log(f'Knob connect error: {e}', 'ERROR')
@@ -188,7 +211,7 @@ class DeviceHandler:
             self._mouse = MouseState(time.monotonic(), self.logger, self.display)
             try:
                 self._mouse.ensure_connected()
-                self.scheduler.register(self._mouse.ensure_connected, tag='mouse', backoff=True)
+                self.scheduler.register(self._ensure_mouse_connected, tag='mouse', backoff=True)
             except (OSError, IOError, TimeoutError) as e:
                 self._mouse = None
                 self.logger.log(f'Mouse connect error: {e}', 'ERROR')
@@ -207,7 +230,7 @@ class DeviceHandler:
                 self.display.rigchk = self._rigchk
             try:
                 self._rigchk.check_rig()
-                self.scheduler.register(self._rigchk.check_rig, tag='rig', backoff=True)
+                self.scheduler.register(self._check_rig_connected, tag='rig', backoff=True)
             except (OSError, IOError, TimeoutError) as e:
                 self._rigchk = None
                 self.logger.log(f'Rigcheck connect error: {e}', 'ERROR')
@@ -220,14 +243,17 @@ class DeviceHandler:
             self.logger.log('Knob added', 'DEBUG')
 
     def _on_knob_removed(self, dev):
-        if dev == 'knob' and self._knob:
-            try:
-                self._knob.disconnect()
-            except (OSError, IOError) as e:
-                self.logger.log(f'knob disconnect error: {e}', 'ERROR')
-            self.scheduler.unregister_tag('knob')
-            self._knob = None
-            self.logger.log('Knob removed', 'DEBUG')
+        if dev == 'knob':
+            with self._lifecycle_lock:
+                self.scheduler.unregister_tag('knob')
+                if self._knob:
+                    try:
+                        self._knob.disconnect()
+                    except (OSError, IOError) as e:
+                        self.logger.log(f'knob disconnect error: {e}', 'ERROR')
+                    self._knob = None
+                    self.logger.log('Knob removed', 'DEBUG')
+
             # Start mouse again - knob presents an unused mouse
             if self.devices.enabled('mouse'):
                 self._on_mouse_added('mouse')
@@ -240,16 +266,18 @@ class DeviceHandler:
             self.logger.log('Mouse added', 'DEBUG')
             
     def _on_mouse_removed(self, dev):
-        if dev == 'mouse' and self._mouse:
-            try:
-                self._mouse.disconnect()
-            except (OSError, IOError) as e:
-                self.logger.log(f'mouse disconnect error: {e}', 'ERROR')
-            if self.keyboard:
-                self.keyboard.mouse = None
-            self.scheduler.unregister_tag('mouse')
-            self._mouse = None
-            self.logger.log('Mouse removed', 'DEBUG')
+        if dev == 'mouse':
+            with self._lifecycle_lock:
+                self.scheduler.unregister_tag('mouse')
+                if self._mouse:
+                    try:
+                        self._mouse.disconnect()
+                    except (OSError, IOError) as e:
+                        self.logger.log(f'mouse disconnect error: {e}', 'ERROR')
+                    if self.keyboard:
+                        self.keyboard.mouse = None
+                    self._mouse = None
+                    self.logger.log('Mouse removed', 'DEBUG')
 
     def _on_rig_added(self, dev):
         if dev == 'rig':
@@ -257,18 +285,20 @@ class DeviceHandler:
             self.logger.log('Rig added', 'DEBUG')
 
     def _on_rig_removed(self, dev):
-        if dev == 'rig' and self._rigchk:
-            self.scheduler.unregister_tag('rig')
-            try:
-                self.sync.shutdown(role='rig')
-            except (OSError, IOError, RuntimeError) as e:
-                self.logger.log(f'sync rig shutdown error: {e}', 'ERROR')
-            try:
-                self._rigchk.cleanup()
-            except (OSError, IOError, RuntimeError) as e:
-                self.logger.log(f'rigchk shutdown error: {e}', 'ERROR')
-            self._rigchk = None
-            self.logger.log('Rig removed', 'DEBUG')
+        if dev == 'rig':
+            with self._lifecycle_lock:
+                self.scheduler.unregister_tag('rig')
+                try:
+                    self.sync.shutdown(role='rig')
+                except (OSError, IOError, RuntimeError) as e:
+                    self.logger.log(f'sync rig shutdown error: {e}', 'ERROR')
+                if self._rigchk:
+                    try:
+                        self._rigchk.cleanup()
+                    except (OSError, IOError, RuntimeError) as e:
+                        self.logger.log(f'rigchk shutdown error: {e}', 'ERROR')
+                    self._rigchk = None
+                self.logger.log('Rig removed', 'DEBUG')
 
     def _on_gqrx_added(self, dev):
         if dev == 'gqrx':
