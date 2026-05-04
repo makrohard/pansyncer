@@ -344,7 +344,9 @@ class Display:
     def toggle_small_display(self):
         """Toggle compact UI and trigger a repaint."""
         self.cfg.display.small_display = not self.cfg.display.small_display
-        sys.stdout.write("\033[2J\033[H")                                        # Clear screen and redraw on toggle
+        self._row_map.clear()
+        self._last_log_end_row = 0
+        sys.stdout.write("\033[2J\033[H")                                         # Clear screen and redraw on toggle
         sys.stdout.flush()
         super().__setattr__('_redraw', True)
 
