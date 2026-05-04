@@ -27,6 +27,14 @@ class KeyboardController:
         """Return file descriptor."""
         return self._fd
 
+    @staticmethod
+    def _csi_len(data, start):
+        """Return complete CSI sequence length, or 0 if incomplete."""
+        for pos in range(start + 2, len(data)):
+            if 0x40 <= data[pos] <= 0x7e:
+                return pos - start + 1
+        return 0
+
     def read_stdin(self, fd, now):
         """ Read raw data from stdin do detect Escape-Sequences """
         self._input_buf.extend(os.read(fd, 32))                                 # read up to 32 bytes
@@ -52,8 +60,12 @@ class KeyboardController:
                 if remaining < 3:                                                     # keep incomplete ESC sequence
                     break
 
-                if data[i + 1] == ord('['):                                           # look for ESC sequences
-                    code = data[i + 2]
+                if data[i + 1] == ord('['):                                           # look for CSI sequences
+                    seq_len = self._csi_len(data, i)
+                    if seq_len == 0:
+                        break                                                         # keep incomplete CSI sequence
+
+                    code = data[i + seq_len - 1]                                      # final byte
                     if code == ord('I'):
                         self.focused = True                                           # Focus IN
                         self.logger.log("Window got focus", "DEBUG")
@@ -65,15 +77,16 @@ class KeyboardController:
                         if not (self.mouse and (
                                 now - getattr(self.mouse, 'last_scroll_time', 0) < (self.interval * 4))):
                             if self.handle_events('+') == 'quit':
-                                del data[:i + 3]
+                                del data[:i + seq_len]
                                 return True
                     elif code == ord('B'):                                            # Down arrow
                         if not (self.mouse and (
                                 now - getattr(self.mouse, 'last_scroll_time', 0) < (self.interval * 4))):
                             if self.handle_events('-') == 'quit':
-                                del data[:i + 3]
+                                del data[:i + seq_len]
                                 return True
-                    i += 3                                                            # advance past the CSI triplet
+
+                    i += seq_len                                                      # consume complete CSI sequence
                     continue
 
             if self._paste_mode:                                                      # ignore pasted text
