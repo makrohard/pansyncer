@@ -641,14 +641,14 @@ class SyncManager:
 
             is_error = False
             freq = None
-            self.logger.log(f"{role.upper()} RECEIVED {part.decode(errors="replace")}", "DEBUG")
+            self.logger.log(f"{role.upper()} RECEIVED {part.decode(errors='replace')}", "DEBUG")
 
             if part.startswith(b"RPRT"):                                                # WRITE REPORT
                 try:
                     _, code = part.split(b" ", 1)
                 except ValueError:
                     self.logger.log(
-                        f"ERROR {role.upper()} MALFORMED RPRT RESPONSE: {part.decode(errors="replace")}", "DEBUG")
+                    f"ERROR {role.upper()} MALFORMED RPRT RESPONSE: {part.decode(errors='replace')}", "DEBUG")
                     is_error = True
                     code = None
 
@@ -675,7 +675,7 @@ class SyncManager:
                 except ValueError:
                     is_error = True
                     freq = None
-                    self.logger.log(f"{role.upper()} ERROR RESPONSE UNKNOWN: {part.decode(errors="replace")}", "DEBUG")
+                    self.logger.log(f"{role.upper()} ERROR RESPONSE UNKNOWN: {part.decode(errors='replace')}", "DEBUG")
 
             if freq is not None:
                 if freq != rdo['freq_cur']:                                             # New frequency present
