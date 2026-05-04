@@ -199,7 +199,8 @@ class SyncManager:
                             self.logger.log(f"{role.upper()} NUDGE BUFFER FULL", "DEBUG")
                             return
 
-                    if self._queue_set(role, new_freq):
+                    is_lo = self.ifreq is not None and role == 'gqrx'
+                    if self._queue_set(role, new_freq, is_lo=is_lo):
                         self.logger.log(f"{role.upper()} NUDGE QUEUED {new_freq}", "DEBUG")
                     break
         except (KeyError, AttributeError, TypeError, ValueError) as e:
