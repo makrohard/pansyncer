@@ -32,17 +32,7 @@ class DeviceRegister:
         self._on_add = []
         self._on_remove = []
         self.logger = logger
-
-
-    @classmethod
-    def from_args(cls, args):
-        """ Construct a DeviceRegister from parsed CLI args. """
-        cfg = DeviceRegisterConfig()
-        enabled_devices = [cfg.device_map.get(d, d) for d in args.devices]
-        cfg.enabled = enabled_devices
-        return cls(cfg)
-
-                                                                                                    # Subscription API
+                                                                                                   # Subscription API
     def on_add(self, callback):
         """Register callback for device additions."""
         self._on_add.append(callback)
