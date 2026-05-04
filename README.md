@@ -185,7 +185,7 @@ your environment, you have two options:
 * Use the config file: `pansyncer.toml`
 
 Command line arguments will overwrite the config file.  
-f the config file is missing, PanSyncer will start with its built-in defaults.  
+If the config file is missing, PanSyncer will start with its built-in defaults.  
 If the config file exists but contains invalid TOML, PanSyncer will abort startup with a configuration error.
 
 ### Running tests
