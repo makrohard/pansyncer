@@ -564,7 +564,7 @@ class SyncManager:
         rdo['is_busy'] = None
 
     def _send_query(self, role, now):
-        """Send pending querys for the specified role when its socket is writable."""
+        """Send pending queries for the specified role when its socket is writable."""
         rdo = self.radio[role]
 
         if (rdo['sock'] is None                                                         # Run conditions
