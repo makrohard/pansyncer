@@ -92,4 +92,4 @@ class MouseState:
             self.mice.remove(dev)
             if self.display:
                 if self.display: self.display.set_mouse(False)
-                self.logger.log(f"Mouse disconnected: {dev.name}", "INFO")
+            self.logger.log(f"Mouse disconnected: {dev.name}", "INFO")
