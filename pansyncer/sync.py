@@ -233,20 +233,44 @@ class SyncManager:
             return None
 
     def set_frequency(self, freq_hz, role=None):
-        """Set absolute frequency (Hz)."""
+        """Set absolute main frequency (Hz)."""
         try:
             freq_hz = int(round(freq_hz)) if isinstance(freq_hz, float) else int(freq_hz)
             if self.ifreq is not None:
-                tgt = 'rig'
-            elif role in self.radio:
+                if role in self.radio:
+                    tgt = role
+                else:
+                    rig_ok = (
+                        self.radio['rig']['sock'] is not None
+                        and self.radio['rig']['connected']
+                        and self.devices.enabled('rig')
+                    )
+                    gqx_ok = (
+                        self.radio['gqrx']['sock'] is not None
+                        and self.radio['gqrx']['connected']
+                        and self.devices.enabled('gqrx')
+                    )
+                    tgt = 'rig' if rig_ok else ('gqrx' if gqx_ok else None)
+
+                if tgt is None:
+                    return False
+
+                if tgt == 'gqrx':
+                    ifreq_hz = abs(int(self.ifreq * 1e6))
+                    lo_freq = freq_hz - ifreq_hz
+                    return self._queue_set('gqrx', lo_freq, is_lo=True)
+
+                return self._queue_set(tgt, freq_hz)
+
+            if role in self.radio:
                 tgt = role
             else:
                 rig_ok = (self.radio['rig']['sock'] is not None
-                          and self.radio['rig']['connected']
-                          and self.devices.enabled('rig'))
+                    and self.radio['rig']['connected']
+                    and self.devices.enabled('rig'))
                 gqx_ok = (self.radio['gqrx']['sock'] is not None
-                          and self.radio['gqrx']['connected']
-                          and self.devices.enabled('gqrx'))
+                    and self.radio['gqrx']['connected']
+                    and self.devices.enabled('gqrx'))
                 tgt = 'rig' if rig_ok else ('gqrx' if gqx_ok else None)
             if tgt is None:
                 return False
