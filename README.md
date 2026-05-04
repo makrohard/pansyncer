@@ -464,5 +464,5 @@ apply the group settings of the user and the udev-rule.
 
 If you have successfully integrated a new knob, please consider opening an issue on
 [GitHub](https://github.com/makrohard/pansyncer/issues), or write me an eMail to 
-[410733\@gmail.com](mailto:410744\@gmail.com) with idVendor, idProduct and name.
+[410733\@gmail.com](mailto:410733\@gmail.com) with idVendor, idProduct and name.
 I will gladly add support for more knobs by default.
