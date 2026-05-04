@@ -121,7 +121,7 @@ hamlib client. This will only work in Direct Mode and you must start rigctld man
 
 * PanSyncer runs on  *Linux*. It is using system-specific dependencies like evdev and select.
 There are no plans to port PanSyncer to Windows.
-* *Python* >= 3.8 - which should be included in any recent Linux distribution. The dependencies are installed
+* *Python* >= 3.11 - which should be included in any recent Linux distribution. The dependencies are installed
 as described below. 
 * PanSyncer is meant to be run from an VT100‑compatible ANSI terminal, unless you use it as a background process.
 Most Linux terminals support this.
