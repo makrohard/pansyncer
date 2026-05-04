@@ -55,10 +55,11 @@ class Config:
             with open(path, 'rb') as f:
                 data = tomllib.load(f)
         except FileNotFoundError:
-            data = {}                                                                   # Config file is optional, use defaults
+            data = {}                                                                   # config is missing, use defaults
         except tomllib.TOMLDecodeError as e:
-            print(f"[CONFIG ERROR] Invalid TOML FILE {path}: {e}", file=sys.stderr)
-            data = {}
+            print(f"[CONFIG ERROR] Invalid TOML FILE {path}: {e}", file=sys.stderr)    # config is invalid, exit with error
+            print("[CONFIG ERROR] You may want to repair that filer or delete it and use defaults.")
+            raise SystemExit(2) from e
 
                                                                                         # overlay file data
         for section_name in ('main', 'sync', 'devices', 'display', 'rigcheck', 'reconnect_scheduler'):
