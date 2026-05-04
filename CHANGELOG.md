@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.2
+- Added automated test coverage:
+  - Unit tests: config, bands, step, display formatting.
+  - State-machine tests for `SyncManager`.
+  - Fake TCP tests for Rig/Gqrx protocol behavior over localhost.
+  - Input tests using fake keyboard/mouse/knob events.
+  - Lifecycle tests for reconnect scheduling and device cleanup.
+- Fixed iFreq Gqrx-only handling
+- Fixed invalid TOML handling
+- Improved device lifecycle handling
+
 ## 0.5.1
 - Fixed iFreq GQRX-only tuning to send LNB_LO instead of normal frequency commands.
 - Fixed small/full display toggle redraw state.
