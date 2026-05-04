@@ -70,7 +70,7 @@ class DeviceHandler:
     def cleanup(self):
         """Release resources & stop background activities."""
         try:
-            self.scheduler.shutdown(wait=False)
+            self.scheduler.shutdown(wait=True)
         except Exception as e:
             self.logger.log(f'scheduler shutdown error: {e}', 'ERROR')
 
