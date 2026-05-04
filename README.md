@@ -24,6 +24,8 @@ For Ubuntu, install `libhamlib-utils`.
   cd pansyncer
   pip install --user .
   ```
+To run without installation, see: [Installation](#installation)
+
 ### Configuration
 Edit **config** file `pansyncer.toml` or use command line arguments `pansyncer --help`.  
 
@@ -58,6 +60,7 @@ To set up an unknown knob, see: [Use a USB Volume Knob as VFO Knob](#use-a-usb-v
   * [Environment](#environment)
   * [Installation](#installation)
   * [Config file and command line arguments](#config-file-and-command-line-arguments)
+  * [Running tests](#running-tests)
 * [Usage](#usage)
   * [User Interface](#user-interface)
   * [Daemon mode](#daemon-mode)
@@ -181,7 +184,24 @@ your environment, you have two options:
 * Use command line arguments. `pansyncer --help` will show you the usage
 * Use the config file: `pansyncer.toml`
 
-Command line arguments will overwrite the config file.
+Command line arguments will overwrite the config file.  
+f the config file is missing, PanSyncer will start with its built-in defaults.  
+If the config file exists but contains invalid TOML, PanSyncer will abort startup with a configuration error.
+
+### Running tests
+
+For developers:  
+PanSyncer uses pytest for its automated test suite. From the repository root, install the development dependencies:
+```
+python -m pip install -e ".[dev]"
+```
+
+Run the tests:
+```
+python -m pytest
+```
+The tests use fake devices and local test servers. They do not require hardware devices.
+
 
 [TOC](#table-of-contents)
 ## Usage
