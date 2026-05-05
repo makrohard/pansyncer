@@ -44,7 +44,7 @@ class PanSyncer:
             self.devices = DeviceRegister(self.cfg)                                         # Register devices
 
             if not {'rig', 'gqrx'} & self.devices.list():                                   # Must have at least one radio
-                print("[ERROR] You must specify at least one of --devices r|g")
+                print("[ERROR] You must specify at least one of --devices r|g", file=sys.stderr)
                 sys.exit(1)
 
             if self.cfg.main.daemon:                                                        # Display setup
