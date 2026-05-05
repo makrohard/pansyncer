@@ -14,8 +14,9 @@ class FakeEvent:
 
 
 class FakeInputDevice:
-    def __init__(self, fd, events):
+    def __init__(self, fd, events, name="Fake Input Device"):
         self.fd = fd
+        self.name = name
         self._events = list(events)
         self.closed = False
 
@@ -252,3 +253,69 @@ def test_knob_non_key_event_is_ignored():
     assert sync.nudges == []
     assert step.next_calls == 0
     assert display.knob_inputs == []
+
+class FailingReadMouseDevice(FakeInputDevice):
+    def read(self):
+        raise OSError("mouse gone")
+
+
+class FailingUngrabKnobDevice(FakeInputDevice):
+    def __init__(self, fd, events):
+        super().__init__(fd, events)
+        self.ungrab_calls = 0
+        self.close_calls = 0
+
+    def ungrab(self):
+        self.ungrab_calls += 1
+        raise OSError("ungrab failed")
+
+    def close(self):
+        self.close_calls += 1
+        self.closed = True
+
+
+def test_mouse_read_error_keeps_display_connected_when_other_mouse_remains():
+    failing = FailingReadMouseDevice(fd=10, events=[])
+    remaining = FakeInputDevice(fd=11, events=[])
+    display = FakeDisplay()
+    mouse = make_mouse_state(failing, display=display)
+    mouse.mice.append(remaining)
+
+    sync = FakeSync()
+    step = FakeStep(100)
+
+    mouse.handle_event(10, sync, step, now=12.0)
+
+    assert failing.closed is True
+    assert remaining in mouse.mice
+    assert failing not in mouse.mice
+    assert display.mouse_states[-1] is True
+
+
+def test_mouse_wheel_zero_value_is_ignored():
+    event = FakeEvent(evdev.ecodes.EV_REL, evdev.ecodes.REL_WHEEL, 0)
+    fake_device = FakeInputDevice(fd=10, events=[event])
+    display = FakeDisplay()
+    mouse = make_mouse_state(fake_device, display=display)
+    sync = FakeSync()
+    step = FakeStep(100)
+
+    mouse.handle_event(10, sync, step, now=12.0)
+
+    assert sync.nudges == []
+    assert display.mouse_inputs == []
+
+
+def test_knob_disconnect_closes_device_even_when_ungrab_fails():
+    fake_device = FailingUngrabKnobDevice(fd=20, events=[])
+    display = FakeDisplay()
+    knob = make_knob_controller(fake_device, display=display)
+
+    knob.disconnect()
+
+    assert fake_device.ungrab_calls == 1
+    assert fake_device.close_calls == 1
+    assert fake_device.closed is True
+    assert knob.dev is None
+    assert knob.active_cfg is None
+    assert display.knob_states[-1] is False

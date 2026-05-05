@@ -72,6 +72,9 @@ class MouseState:
         try:
             for event in dev.read():
                 if event.type == evdev.ecodes.EV_REL and event.code == evdev.ecodes.REL_WHEEL:
+                    if event.value == 0:
+                        continue
+
                     self.last_scroll_time = now
                     if event.value > 0:
                         sync.nudge(step.get_step())
@@ -91,5 +94,5 @@ class MouseState:
                 pass
             self.mice.remove(dev)
             if self.display:
-                if self.display: self.display.set_mouse(False)
+                self.display.set_mouse(bool(self.mice))
             self.logger.log(f"Mouse disconnected: {dev.name}", "INFO")

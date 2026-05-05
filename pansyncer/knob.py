@@ -57,19 +57,23 @@ class KnobController:
 
 
     def disconnect(self):
-        """Release grab and reset state."""
+        """Release grab, close device and reset state."""
         if not self.dev:
             return
+        dev = self.dev
         try:
-            self.dev.ungrab()
+            dev.ungrab()
             self.logger.log("Ungrabbed device KNOB ", "DEBUG")
-            self.dev.close()
         except OSError as e:
             self.logger.log(f"Failed to ungrab device KNOB {e}", "DEBUG")
+        try:
+            dev.close()
+        except OSError as e:
+            self.logger.log(f"Failed to close device KNOB {e}", "DEBUG")
         self.dev = None
-
-        if self.display: self.display.set_knob(False)
         self.active_cfg = None
+        if self.display:
+            self.display.set_knob(False)
         self.logger.log("VFO-Knob disconnected", "INFO")
 
     def fd(self):
