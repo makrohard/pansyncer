@@ -8,10 +8,9 @@ class DummySocket:
     pass
 
 
-def make_ifreq_gqrx_only_sync():
+def make_ifreq_gqrx_only_sync(ifreq=73.095):
     cfg = Config()
-    cfg.main.daemon = True
-    cfg.main.ifreq = 73.095
+    cfg.main.ifreq = ifreq
     cfg.devices.enabled = ["gqrx"]
 
     devices = DeviceRegister(cfg)
@@ -81,3 +80,15 @@ def test_ifreq_gqrx_only_band_step_up_queues_lnb_lo_for_next_band():
     assert sync.radio["gqrx"]["freq_queued"] == -54_975_000
     assert sync.radio["gqrx"]["freq_queued_is_lo"] is True
     assert sync.radio["rig"]["freq_queued"] is None
+
+
+def test_ifreq_hz_is_rounded_once_from_mhz():
+    sync = make_ifreq_gqrx_only_sync(ifreq=73.0950004)
+
+    assert sync.ifreq_hz == 73_095_000
+
+
+def test_ifreq_hz_rounds_instead_of_truncating():
+    sync = make_ifreq_gqrx_only_sync(ifreq=73.0950006)
+
+    assert sync.ifreq_hz == 73_095_001

@@ -270,7 +270,7 @@ class Display:
     @synchronized
     def set_ifreq(self, freq: int):
         """Set the intermediate frequency (Hz) to display."""
-        self._ifreq = int(freq * 1_000_000)
+        self._ifreq = int(round(freq * 1_000_000))
 
     @synchronized
     def set_sync_mode(self, on: bool):

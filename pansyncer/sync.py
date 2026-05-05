@@ -55,6 +55,7 @@ class SyncManager:
         self.step = step
         self.display = display
         self.ifreq = self.cfg.main.ifreq
+        self.ifreq_hz = int(round(abs(self.ifreq * 1_000_000))) if self.ifreq is not None else None
         self.bands = Bands(self.cfg.bands)
         self._shutdown = False
 
@@ -225,7 +226,7 @@ class SyncManager:
                 return rig['freq_cur']
             if gqrx_ok:
                 if self.ifreq is not None:
-                    return gqrx['freq_cur'] + abs(int(self.ifreq * 1e6))
+                    return gqrx['freq_cur'] + self.ifreq_hz
                 return gqrx['freq_cur']
             return None
         except (KeyError, TypeError) as e:
@@ -256,7 +257,7 @@ class SyncManager:
                     return False
 
                 if tgt == 'gqrx':
-                    ifreq_hz = abs(int(self.ifreq * 1e6))
+                    ifreq_hz = self.ifreq_hz
                     lo_freq = freq_hz - ifreq_hz
                     return self._queue_set('gqrx', lo_freq, is_lo=True)
 
@@ -412,7 +413,7 @@ class SyncManager:
                     base = rdo['freq_cur']
                     # We keep the LO_Freq in the gqrx['freq_cur'], but we convert it to main frequency for display
                     if self.ifreq is not None and base is not None and role == 'gqrx':
-                        freq = base + abs(int(self.ifreq * 1e6))
+                        freq = base + self.ifreq_hz
                     else:
                         freq = base
                 setter = getattr(self.display, f"set_{role}")
@@ -536,7 +537,7 @@ class SyncManager:
         else:                                                                           # iFreq mode
             if rig_changed:
                 rig_freq = self._effective_freq('rig')
-                lo_freq = rig_freq - abs(int(self.ifreq * 1e6))
+                lo_freq = rig_freq - self.ifreq_hz
                 if self._effective_freq('gqrx') == lo_freq:
                     if self._confirmed_freq('gqrx', lo_freq):
                         rig['freq_processed'] = rig_freq
