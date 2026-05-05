@@ -29,7 +29,12 @@ class Logger:
     def __init__(self, name, display=None, level='INFO', logfile_path=None):
         self.display = display
         self.logger = logging.getLogger(name)
-        self.logger.setLevel(level.upper())
+        try:
+            level_name = str(level).upper()
+            self.logger.setLevel(level_name)
+        except (ValueError, TypeError):
+            level_name = "INFO"
+            self.logger.setLevel(level_name)
         self.logger.propagate = False
         for handler in self.logger.handlers[:]:
             handler.close()
