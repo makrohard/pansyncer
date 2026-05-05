@@ -9,6 +9,7 @@ import time
 import select
 import io
 import threading
+import errno
 
 from pansyncer.rigcheck import RigChecker
 from pansyncer.keyboard import KeyboardController
@@ -155,6 +156,13 @@ class DeviceHandler:
             raise
         except OSError as e:
             self.logger.log(f'select error: {e}', 'ERROR')
+
+            if getattr(e, "errno", None) == errno.EBADF:
+                if kfd is not None and self.devices.enabled("knob"):
+                    self.devices.remove("knob")
+                if mouse_fds and self.devices.enabled("mouse"):
+                    self.devices.remove("mouse")
+
             return False
 
         for fd in rlist:                                                               # Dispatch events
