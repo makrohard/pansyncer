@@ -12,13 +12,45 @@ class FakeEvent:
         self.code = code
         self.value = value
 
+    class FakeInputDevice:
+        def __init__(
+                self,
+                fd,
+                events,
+                path=None,
+                name="Fake Input Device",
+                caps=None,
+        ):
+            self.fd = fd
+            self.path = path if path is not None else f"/dev/input/event{fd}"
+            self.name = name
+            self._events = list(events)
+            self.closed = False
+            self.close_calls = 0
+            self.grab_calls = 0
+            self.ungrab_calls = 0
+            self._caps = caps if caps is not None else {
+                evdev.ecodes.EV_REL: [evdev.ecodes.REL_WHEEL],
+                evdev.ecodes.EV_KEY: [evdev.ecodes.BTN_MIDDLE],
+            }
 
-class FakeInputDevice:
-    def __init__(self, fd, events, name="Fake Input Device"):
-        self.fd = fd
-        self.name = name
-        self._events = list(events)
-        self.closed = False
+        def capabilities(self):
+            return self._caps
+
+        def read(self):
+            events = self._events
+            self._events = []
+            return events
+
+        def grab(self):
+            self.grab_calls += 1
+
+        def ungrab(self):
+            self.ungrab_calls += 1
+
+        def close(self):
+            self.close_calls += 1
+            self.closed = True
 
     def read(self):
         events = self._events
@@ -28,6 +60,45 @@ class FakeInputDevice:
     def close(self):
         self.closed = True
 
+class FakeInputDevice:
+    def __init__(
+        self,
+        fd,
+        events,
+        path=None,
+        name="Fake Input Device",
+        caps=None,
+    ):
+        self.fd = fd
+        self.path = path if path is not None else f"/dev/input/event{fd}"
+        self.name = name
+        self._events = list(events)
+        self.closed = False
+        self.close_calls = 0
+        self.grab_calls = 0
+        self.ungrab_calls = 0
+        self._caps = caps if caps is not None else {
+            evdev.ecodes.EV_REL: [evdev.ecodes.REL_WHEEL],
+            evdev.ecodes.EV_KEY: [evdev.ecodes.BTN_MIDDLE],
+        }
+
+    def capabilities(self):
+        return self._caps
+
+    def read(self):
+        events = self._events
+        self._events = []
+        return events
+
+    def grab(self):
+        self.grab_calls += 1
+
+    def ungrab(self):
+        self.ungrab_calls += 1
+
+    def close(self):
+        self.close_calls += 1
+        self.closed = True
 
 class FakeSync:
     def __init__(self):
@@ -80,6 +151,23 @@ class FakeLogger:
     def log(self, msg, level="INFO"):
         self.messages.append((level, msg))
 
+class FakeInputDeviceFactory:
+    def __init__(self, devices_by_path):
+        self.devices_by_path = devices_by_path
+        self.opened = []
+
+    def __call__(self, path):
+        self.opened.append(path)
+        return self.devices_by_path[path]
+
+
+def install_mouse_discovery(monkeypatch, paths, devices_by_path):
+    factory = FakeInputDeviceFactory(devices_by_path)
+
+    monkeypatch.setattr(evdev, "list_devices", lambda: list(paths))
+    monkeypatch.setattr(evdev, "InputDevice", factory)
+
+    return factory
 
 def make_mouse_state(fake_device, display=None):
     mouse = MouseState.__new__(MouseState)
@@ -319,3 +407,134 @@ def test_knob_disconnect_closes_device_even_when_ungrab_fails():
     assert knob.dev is None
     assert knob.active_cfg is None
     assert display.knob_states[-1] is False
+
+def test_mouse_rescan_adds_new_mouse_even_when_existing_mouse_present(monkeypatch):
+    dead_mouse = FakeInputDevice(
+        fd=10,
+        events=[],
+        path="/dev/input/event10",
+        name="Dead knob mouse",
+    )
+    real_mouse = FakeInputDevice(
+        fd=11,
+        events=[],
+        path="/dev/input/event11",
+        name="Real mouse",
+    )
+
+    paths = [dead_mouse.path]
+    devices_by_path = {
+        dead_mouse.path: dead_mouse,
+        real_mouse.path: real_mouse,
+    }
+    display = FakeDisplay()
+    install_mouse_discovery(monkeypatch, paths, devices_by_path)
+
+    mouse = MouseState(now=0.0, logger=FakeLogger(), display=display)
+
+    assert mouse.mice == [dead_mouse]
+
+    paths.append(real_mouse.path)
+
+    assert mouse.ensure_connected() is True
+
+    assert mouse.mice == [dead_mouse, real_mouse]
+    assert display.mouse_states[-1] is True
+
+
+def test_mouse_rescan_does_not_open_existing_mouse_twice(monkeypatch):
+    mouse_device = FakeInputDevice(
+        fd=10,
+        events=[],
+        path="/dev/input/event10",
+        name="Mouse",
+    )
+
+    paths = [mouse_device.path]
+    devices_by_path = {mouse_device.path: mouse_device}
+    factory = install_mouse_discovery(monkeypatch, paths, devices_by_path)
+
+    mouse = MouseState(now=0.0, logger=FakeLogger(), display=FakeDisplay())
+
+    assert mouse.mice == [mouse_device]
+    assert factory.opened == [mouse_device.path]
+
+    assert mouse.ensure_connected() is True
+
+    assert mouse.mice == [mouse_device]
+    assert factory.opened == [mouse_device.path]
+
+
+def test_mouse_rescan_removes_disappeared_mouse(monkeypatch):
+    removed_mouse = FakeInputDevice(
+        fd=10,
+        events=[],
+        path="/dev/input/event10",
+        name="Removed mouse",
+    )
+    remaining_mouse = FakeInputDevice(
+        fd=11,
+        events=[],
+        path="/dev/input/event11",
+        name="Remaining mouse",
+    )
+
+    paths = [removed_mouse.path, remaining_mouse.path]
+    devices_by_path = {
+        removed_mouse.path: removed_mouse,
+        remaining_mouse.path: remaining_mouse,
+    }
+    display = FakeDisplay()
+    install_mouse_discovery(monkeypatch, paths, devices_by_path)
+
+    mouse = MouseState(now=0.0, logger=FakeLogger(), display=display)
+
+    assert mouse.mice == [removed_mouse, remaining_mouse]
+
+    paths.remove(removed_mouse.path)
+
+    assert mouse.ensure_connected() is True
+
+    assert removed_mouse.closed is True
+    assert remaining_mouse.closed is False
+    assert mouse.mice == [remaining_mouse]
+    assert display.mouse_states[-1] is True
+
+
+def test_dead_knob_mouse_does_not_block_later_real_mouse_events(monkeypatch):
+    dead_mouse = FakeInputDevice(
+        fd=10,
+        events=[],
+        path="/dev/input/event10",
+        name="Dead knob mouse",
+    )
+    real_mouse = FakeInputDevice(
+        fd=11,
+        events=[
+            FakeEvent(evdev.ecodes.EV_REL, evdev.ecodes.REL_WHEEL, 1),
+        ],
+        path="/dev/input/event11",
+        name="Real mouse",
+    )
+
+    paths = [dead_mouse.path]
+    devices_by_path = {
+        dead_mouse.path: dead_mouse,
+        real_mouse.path: real_mouse,
+    }
+    display = FakeDisplay()
+    install_mouse_discovery(monkeypatch, paths, devices_by_path)
+
+    mouse = MouseState(now=0.0, logger=FakeLogger(), display=display)
+
+    paths.append(real_mouse.path)
+
+    assert mouse.ensure_connected() is True
+
+    sync = FakeSync()
+    step = FakeStep(100)
+
+    mouse.handle_event(real_mouse.fd, sync, step, now=12.0)
+
+    assert sync.nudges == [100]
+    assert display.mouse_inputs == ["UP "]
