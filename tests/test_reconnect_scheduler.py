@@ -239,3 +239,64 @@ def test_shutdown_prevents_later_registration():
 
     assert calls == []
     assert task not in scheduler.tasks
+
+class ImmediateDoneFuture:
+    def __init__(self, result_value=True):
+        self.result_value = result_value
+
+    def done(self):
+        return True
+
+
+class BlockingFuture:
+    def done(self):
+        return False
+
+
+class FakeExecutor:
+    def __init__(self, future):
+        self.future = future
+        self.submitted = []
+
+    def submit(self, fn, *args):
+        self.submitted.append((fn, args))
+        return self.future
+
+    def shutdown(self, wait=False):
+        pass
+
+
+def test_tick_drains_old_result_before_starting_new_worker():
+    scheduler, _ = make_scheduler(reconnect_interval=10.0)
+    calls = []
+
+    def task():
+        calls.append("run")
+        return True
+
+    try:
+        scheduler.register(task, tag="rig", run_immediately=True)
+
+        rec = scheduler.tasks[task]
+        old_future = ImmediateDoneFuture()
+        new_future = BlockingFuture()
+
+        rec.future = old_future
+        rec.next_run = time.monotonic() - 1.0
+        scheduler._result_queue.put((task, True, 0.001, rec.generation))
+        scheduler.executor = FakeExecutor(new_future)
+
+        scheduler.tick()
+
+        assert scheduler.executor.submitted == []
+        assert scheduler.tasks[task].future is None
+        assert scheduler.tasks[task].next_run > time.monotonic()
+
+        scheduler.tasks[task].next_run = time.monotonic() - 1.0
+
+        scheduler.tick()
+
+        assert len(scheduler.executor.submitted) == 1
+        assert scheduler.tasks[task].future is new_future
+    finally:
+        scheduler.shutdown(wait=True)

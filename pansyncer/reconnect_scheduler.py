@@ -92,13 +92,16 @@ class ReconnectScheduler:
     def tick(self):
         if self._shutdown:
             return
+
+        self._drain_results()
+
         now = time.monotonic()
         for rec in list(self.tasks.values()):
             if now >= rec.next_run:
                 if rec.future is None or rec.future.done():
                     rec.next_run = now + rec.interval
                     rec.future = self.executor.submit(self._worker_wrapper, rec.fn, rec.generation)
-        self._drain_results()
+
                                                                                            ##### Worker and result
     def _worker_wrapper(self, fn, generation):
         start = time.monotonic()
