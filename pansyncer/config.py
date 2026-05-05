@@ -14,7 +14,7 @@ from pansyncer.display import DisplayConfig
 from pansyncer.knob import KnobConfig
 from pansyncer.rigcheck import RigCheckConfig
 from pansyncer.reconnect_scheduler import SchedulerConfig
-from pansyncer.bands import Band, DEFAULT_BANDS
+from pansyncer.bands import Band, DEFAULT_BANDS, normalize_bands
 
 @dataclass
 class MainConfig:
@@ -45,6 +45,43 @@ class Config:
         self.reconnect_scheduler = reconnect_scheduler or SchedulerConfig()
         self.bands = list(DEFAULT_BANDS)
 
+    @staticmethod
+    def _config_error(message, exc=None):
+        print(f"[CONFIG ERROR] {message}", file=sys.stderr)
+        print(
+            "[CONFIG ERROR] You may want to repair that file or delete it and use defaults.",
+            file=sys.stderr,
+        )
+        if exc is not None:
+            raise SystemExit(2) from exc
+        raise SystemExit(2)
+
+    @classmethod
+    def _load_bands(cls, data):
+        tbl = data.get("bands") or {}
+        if not isinstance(tbl, dict):
+            cls._config_error("[bands] must be a TOML table")
+        region = tbl.get("region")
+        entries = tbl.get(region)
+        if not isinstance(entries, list):
+            return normalize_bands(DEFAULT_BANDS)
+        custom_bands = []
+        for index, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                cls._config_error(f"Invalid band entry #{index}: expected table/object")
+            try:
+                band = Band(name=entry["name"],
+                            start=entry["start"],
+                            goto=entry.get("goto"),
+                            end=entry["end"],)
+            except KeyError as e:
+                cls._config_error(f"Invalid band entry #{index}: missing field {e}", e)
+            custom_bands.append(band)
+        try:
+            return normalize_bands(custom_bands)
+        except ValueError as e:
+            cls._config_error(f"Invalid band configuration: {e}", e)
+
     @classmethod
     def from_args_and_file(cls, args):
                                                                                         # instantiate defaults
@@ -56,9 +93,9 @@ class Config:
                 data = tomllib.load(f)
         except FileNotFoundError:
             data = {}                                                                   # config is missing, use defaults
+
         except tomllib.TOMLDecodeError as e:
-            print(f"[CONFIG ERROR] Invalid TOML FILE {path}: {e}", file=sys.stderr)    # config is invalid, exit with error
-            print("[CONFIG ERROR] You may want to repair that filer or delete it and use defaults.")
+            cls._config_error(f"Invalid TOML FILE {path}: {e}", e)             # config is invalid, exit with error
             raise SystemExit(2) from e
 
                                                                                         # overlay file data

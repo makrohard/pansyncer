@@ -2,7 +2,7 @@
 pansyncer bands.py
 Ham radio band definitions and utilities
 """
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from bisect import bisect_right
 from pansyncer.utils import beep
 
@@ -27,12 +27,67 @@ DEFAULT_BANDS = [
     Band("  6m", 50.000, 50.100, 52.000),
 ]
 
+def _round_mhz_to_100_hz(freq_mhz):
+    freq_hz = int(round(freq_mhz * 1_000_000))
+    rounded_hz = ((freq_hz + 50) // 100) * 100
+    return rounded_hz / 1_000_000
+
+def _midpoint_goto(start, end):
+    return _round_mhz_to_100_hz((start + end) / 2.0)
+
+
+def _number(value, field_name, index):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"band #{index}: {field_name} must be a number")
+    return float(value)
+
+
+def normalize_bands(bands):
+    """Copy, sort and validate band definitions."""
+    normalized = []
+
+    for index, band in enumerate(bands):
+        name = getattr(band, "name", None)
+        if not isinstance(name, str) or not name:
+            raise ValueError(f"band #{index}: name must be a non-empty string")
+
+        start = _number(getattr(band, "start", None), "start", index)
+        end = _number(getattr(band, "end", None), "end", index)
+
+        if start <= 0 or end <= 0:
+            raise ValueError(f"band #{index}: start/end must be positive")
+
+        if start >= end:
+            raise ValueError(f"band #{index}: expected start < end")
+
+        try:
+            goto = _number(getattr(band, "goto", None), "goto", index)
+        except ValueError:
+            goto = _midpoint_goto(start, end)
+
+        if not (start <= goto <= end):
+            goto = _midpoint_goto(start, end)
+
+        normalized.append(Band(name=name, start=start, goto=goto, end=end))
+
+    normalized.sort(key=lambda item: item.start)
+
+    previous = None
+    for index, band in enumerate(normalized):
+        if previous is not None and band.start <= previous.end:
+            raise ValueError(
+                f"band #{index}: band {band.name!r} overlaps previous band {previous.name!r}"
+            )
+        previous = band
+
+    return normalized
+
 class Bands:
     """ Band classifier """
 
     def __init__(self, bands=None):
         source = bands if bands is not None else DEFAULT_BANDS
-        self._bands = [replace(b) for b in source]
+        self._bands = normalize_bands(source)
         self._starts = [b.start for b in self._bands]
         self._ends   = [b.end   for b in self._bands]
 
