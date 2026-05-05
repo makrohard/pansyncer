@@ -37,7 +37,10 @@ class KeyboardController:
 
     def read_stdin(self, fd, now):
         """ Read raw data from stdin do detect Escape-Sequences """
-        self._input_buf.extend(os.read(fd, 32))                                 # read up to 32 bytes
+        chunk = os.read(fd, 32)                                                  # read up to 32 bytes
+        if not chunk:
+            return True
+        self._input_buf.extend(chunk)
         i = 0
         data = self._input_buf
         l = len(data)
