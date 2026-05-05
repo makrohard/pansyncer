@@ -11,9 +11,6 @@ from argparse import RawTextHelpFormatter
 import sys
 import tty
 import termios
-import tomllib
-from pathlib import Path
-from importlib.metadata import PackageNotFoundError, version as package_version
 
 from pansyncer.config import Config
 from pansyncer.device_register import DeviceRegister
