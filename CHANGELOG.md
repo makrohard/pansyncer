@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.3
+- Hardened reconnect scheduling and input-device cleanup.
+- Made mouse discovery idempotent and safer with failing devices.
+- Hardened custom band validation, sorting, overlap checks, and `goto` repair.
+- Centralized iFreq Hz conversion and rounding.
+- Hardened frequency logging and write-error handling.
+- Corrected compact display option to `--small-display`.
+- Hardened terminal display handling.
+- Hardened RigCheck socket, stream, port, and stale-state handling.
+- Device registration: Reject unknown devices
+
 ## 0.5.2
 - Added automated test coverage:
   - Unit tests: config, bands, step, display formatting.
