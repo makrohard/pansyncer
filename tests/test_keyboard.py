@@ -282,3 +282,18 @@ def test_read_stdin_returns_quit_on_eof(monkeypatch):
 
     assert keyboard.read_stdin(123, now=10.0) is True
     assert keyboard._input_buf == bytearray()
+
+def test_read_stdin_returns_quit_on_read_error(monkeypatch):
+    keyboard = make_keyboard()
+
+    def fake_read(fd, size):
+        raise OSError("stdin gone")
+
+    monkeypatch.setattr(os, "read", fake_read)
+
+    assert keyboard.read_stdin(123, now=10.0) is True
+    assert keyboard._input_buf == bytearray()
+    assert any(
+        "stdin read error: stdin gone" in msg
+        for _, msg in keyboard.logger.messages
+    )
