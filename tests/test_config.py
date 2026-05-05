@@ -382,3 +382,11 @@ test = [
     )
 
     assert_config_error_2(config_path, capsys)
+
+def test_missing_knob_entries_use_default_knob_config(tmp_path):
+    args = make_args(tmp_path / "missing.toml")
+
+    cfg = Config.from_args_and_file(args)
+
+    assert len(cfg.knobs) == 1
+    assert cfg.knobs[0].target_name == "Wired KeyBoard Consumer Control"

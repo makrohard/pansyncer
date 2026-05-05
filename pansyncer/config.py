@@ -107,10 +107,14 @@ class Config:
                     if hasattr(section_obj, key):
                         setattr(section_obj, key, val)
 
-        cfg.knobs = []
-        for entry in data.get('knobs', []):                                             # Read knobs definition
+        cfg.knobs = []                                                                  # Read knobs definition
+        for entry in data.get('knobs', []):
             cfg.knobs.append(KnobConfig(**entry))
-        cfg.bands = cls._load_bands(data)                                           # Read bands
+
+        if not cfg.knobs:
+            cfg.knobs = [KnobConfig()]
+
+        cfg.bands = cls._load_bands(data)                                               # Read bands
                                                                                         # overlay CLI args
         for key, val in vars(args).items():
             if val is None:
