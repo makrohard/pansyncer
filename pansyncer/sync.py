@@ -828,10 +828,19 @@ class SyncManager:
 
     def _write_log(self, line: str):
         """Write a line to logfile."""
-        if self.log_file is not None:
+        if self.log_file is None:
+            return
+
+        try:
+            self.log_file.write(line)
+            self.log_file.flush()
+        except (OSError, ValueError) as e:
+            failed_log_file = self.log_file
+            self.log_file = None
+
             try:
-                self.log_file.write(line)
-                self.log_file.flush()
-            except IOError as e:
-                self.logger.log(f"[LOGGING ERROR] {e}", "WARNING")
-                self.log_file = None
+                failed_log_file.close()
+            except (OSError, ValueError):
+                pass
+
+            self.logger.log(f"[LOGGING ERROR] {e}", "WARNING")

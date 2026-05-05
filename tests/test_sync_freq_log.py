@@ -167,3 +167,56 @@ def test_freq_log_in_ifreq_mode_logs_rig_freq_cur_not_gqrx_lnb_lo(tmp_path):
         assert "58895000" not in log_text
     finally:
         sync.shutdown()
+
+class FailingLogFile:
+    def __init__(self):
+        self.closed = False
+        self.write_calls = 0
+
+    def write(self, line):
+        self.write_calls += 1
+        raise OSError("disk full")
+
+    def flush(self):
+        raise AssertionError("flush should not be called after failed write")
+
+    def close(self):
+        self.closed = True
+
+
+def test_freq_log_invalid_path_disables_logging_without_crashing(tmp_path):
+    bad_path = tmp_path / "missing" / "freq.log"
+
+    cfg = Config()
+    cfg.main.daemon = True
+    cfg.devices.enabled = ["rig"]
+    cfg.sync.freq_log_path = str(bad_path)
+
+    devices = DeviceRegister(cfg)
+    step = StepController()
+
+    sync = SyncManager(cfg, devices, step, display=None)
+
+    try:
+        assert sync.log_file is None
+    finally:
+        sync.shutdown()
+
+
+def test_freq_log_write_error_disables_logging_without_crashing(tmp_path):
+    sync, _ = make_sync_with_freq_log(tmp_path, wait=0.5)
+    failing_log = FailingLogFile()
+    sync.log_file = failing_log
+
+    try:
+        sync._write_log("2026-01-01 00:00:00 14200000\n")
+
+        assert failing_log.write_calls == 1
+        assert failing_log.closed is True
+        assert sync.log_file is None
+
+        sync._write_log("2026-01-01 00:00:01 14250000\n")
+
+        assert failing_log.write_calls == 1
+    finally:
+        sync.shutdown()
