@@ -101,8 +101,13 @@ class RigChecker:
 
         self.logger.log(f"Launching rigctld on port {self.port}", "INFO")
 
-        cmd = shlex.split(self.cfg.rigcheck.hamlib_command)                             # Hamlib command
-        cmd = self._set_rigctld_port(cmd, self.port)                                    # use actual rig port
+        try:
+            cmd = shlex.split(self.cfg.rigcheck.hamlib_command)                         # Hamlib command
+            cmd = self._set_rigctld_port(cmd, self.port)                                # use actual rig port
+        except ValueError as e:
+            self.logger.log(f"Invalid rigctld command: {e}", "ERROR")
+            self._proc = None
+            return False
 
         try:                                                                            # Launch rigctld
             self._proc = subprocess.Popen(

@@ -170,3 +170,19 @@ def test_cleanup_kills_process_group_after_terminate_timeout(monkeypatch):
     kill_calls = [call for call in calls if call[0] == "killpg"]
     assert len(kill_calls) == 2
     assert proc.wait_calls == [3, 1]
+
+def test_ensure_rigctld_rejects_invalid_hamlib_command(monkeypatch):
+    cfg = make_cfg(command='rigctld -m 4 -r "broken')
+    checker = RigChecker(cfg, port=cfg.sync.rig_port, display=None, auto_start=True)
+
+    popen_calls = []
+
+    monkeypatch.setattr(checker, "_is_port_open", lambda: False)
+    monkeypatch.setattr("subprocess.Popen", lambda *args, **kwargs: popen_calls.append((args, kwargs)))
+
+    try:
+        assert checker._ensure_rigctld() is False
+        assert popen_calls == []
+        assert checker._proc is None
+    finally:
+        checker.cleanup()
