@@ -25,9 +25,9 @@ class RigCheckConfig:
 class RigChecker:
     """ Starts rigctld if requested, checks Rig connectivity. """
 
-    def __init__(self, cfg, port=4532, display=None, auto_start=True):
+    def __init__(self, cfg, port=None, display=None, auto_start=True):
         self.cfg = cfg
-        self.port = port
+        self.port = port if port is not None else self.cfg.sync.rig_port
         self.display = display
         self.auto_start = auto_start
         self._proc = None
@@ -43,10 +43,15 @@ class RigChecker:
         Rig connectivity check. Opens a separate socket to rigctld and requests frequency.
         Integer response is interpreted as "rig alive". FLrig may respond freq, even if RIG is not connected.
         """
-        self._ensure_rigctld()
+        if not self._ensure_rigctld():
+            self.rig_freq = None
+            if self.display: self.display.set_rig_con(False)
+            return False
+
         self._ensure_socket()
 
         if not self._sock:
+            self.rig_freq = None
             if self.display: self.display.set_rig_con(False)
             return False
 
@@ -78,24 +83,28 @@ class RigChecker:
             if self.display: self.display.set_rig_con(True)
             return True
         except ValueError:
+            self.rig_freq = None
             if self.display: self.display.set_rig_con(False)
             return False
 
     def _ensure_rigctld(self):
         """ Start rigctld if it's not already listening on the configured port. """
         if getattr(self, '_proc', None) and self._proc.poll() is None:
-            return
-        if not self._is_port_open():
-            if not self.auto_start:
-                self.logger.log("rigctld not running. Auto-Start disabled. Restart rigctld manually","CRITICAL")
-                return True
+            return True
 
-            self.logger.log(f"Launching rigctld on port {self.port}", "INFO")
+        if self._is_port_open():
+            return True
 
-            cmd = shlex.split(self.cfg.rigcheck.hamlib_command)                         # Hamlib command
-            cmd = self._set_rigctld_port(cmd, self.cfg.sync.rig_port)                   # use actual rig port
+        if not self.auto_start:
+            self.logger.log("rigctld not running. Auto-Start disabled. Restart rigctld manually", "CRITICAL")
+            return False
 
-                                                                                        # Launch rigctld
+        self.logger.log(f"Launching rigctld on port {self.port}", "INFO")
+
+        cmd = shlex.split(self.cfg.rigcheck.hamlib_command)                             # Hamlib command
+        cmd = self._set_rigctld_port(cmd, self.port)                                    # use actual rig port
+
+        try:                                                                            # Launch rigctld
             self._proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -104,9 +113,16 @@ class RigChecker:
                 bufsize=1,
                 preexec_fn=os.setsid
             )
+        except OSError as e:
+            self.logger.log(f"Could not launch rigctld: {e}", "ERROR")
+            self._proc = None
+            return False
+
                                                                                         # Capture rigctld output
-            threading.Thread(target=self._stream_reader, args=(self._proc.stdout, False), daemon=True).start()
-            threading.Thread(target=self._stream_reader, args=(self._proc.stderr, True), daemon=True).start()
+        threading.Thread(target=self._stream_reader, args=(self._proc.stdout, False), daemon=True).start()
+        threading.Thread(target=self._stream_reader, args=(self._proc.stderr, True), daemon=True).start()
+
+        return True
 
     def _is_port_open(self):
         """ Return True if rigctld is listening on the configured port. """
@@ -119,10 +135,20 @@ class RigChecker:
 
     def _stream_reader(self, stream, is_error):
         """ Read rigctl output """
-        for line in iter(stream.readline, ''):
-            level = "ERROR" if is_error else "INFO"
-            self.logger.log(f"[{level.upper()}: RIGCTLD STREAM READER] {line.strip()}", "DEBUG")
-        stream.close()
+        if stream is None:
+            return
+
+        try:
+            for line in iter(stream.readline, ''):
+                level = "ERROR" if is_error else "INFO"
+                self.logger.log(f"[{level.upper()}: RIGCTLD STREAM READER] {line.strip()}", "DEBUG")
+        except OSError as e:
+            self.logger.log(f"RIGCTLD stream reader error: {e}", "DEBUG")
+        finally:
+            try:
+                stream.close()
+            except OSError:
+                pass
 
     def _ensure_socket(self):
         """ Open a socket to rigctld to query rig is alive"""
@@ -136,13 +162,14 @@ class RigChecker:
 
     def _reset_socket(self):
         """Close the socket."""
+        self.rig_freq = None
         if self.display: self.display.set_rig_con(False)
         if self._sock is None:
             return
         try:
             self._sock.close()
         except OSError as e:
-                self.logger.log(f"RIGCHECK error closing socket: {e}", "DEBUG")
+            self.logger.log(f"RIGCHECK error closing socket: {e}", "DEBUG")
         finally:
             self._sock = None
 

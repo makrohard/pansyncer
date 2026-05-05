@@ -208,3 +208,133 @@ def test_check_rig_returns_false_when_server_is_unreachable():
         assert display.rig_con_states[-1] is False
     finally:
         checker.cleanup()
+class DummyLogger:
+    def __init__(self):
+        self.messages = []
+
+    def log(self, message, level="INFO"):
+        self.messages.append((level, message))
+
+
+class DummyDisplay:
+    def __init__(self):
+        self.rig_states = []
+
+    def set_rig_con(self, connected):
+        self.rig_states.append(connected)
+
+
+class DummySocket:
+    def __init__(self, recv_data=b"14200000\n", fail_send=False, fail_recv=False):
+        self.recv_data = recv_data
+        self.fail_send = fail_send
+        self.fail_recv = fail_recv
+        self.closed = False
+        self.sent = []
+
+    def sendall(self, data):
+        if self.fail_send:
+            raise BrokenPipeError("broken")
+        self.sent.append(data)
+
+    def recv(self, size):
+        if self.fail_recv:
+            raise OSError("recv failed")
+        return self.recv_data
+
+    def close(self):
+        self.closed = True
+
+
+def make_checker(auto_start=True, port=4532, display=None):
+    cfg = Config()
+    cfg.sync.rig_port = 9999
+    cfg.rigcheck.hamlib_command = "rigctld -m 4 -r dummy -t 1111"
+
+    checker = RigChecker(cfg, port=port, display=display, auto_start=auto_start)
+    checker.logger = DummyLogger()
+    return checker
+
+
+def test_ensure_rigctld_auto_start_disabled_returns_false_when_port_closed(monkeypatch):
+    checker = make_checker(auto_start=False)
+
+    monkeypatch.setattr(checker, "_is_port_open", lambda: False)
+
+    assert checker._ensure_rigctld() is False
+
+
+def test_ensure_rigctld_uses_instance_port_when_launching(monkeypatch):
+    checker = make_checker(port=7777)
+    launched = {}
+
+    monkeypatch.setattr(checker, "_is_port_open", lambda: False)
+
+    class DummyProcess:
+        stdout = None
+        stderr = None
+
+        def poll(self):
+            return None
+
+    def fake_popen(cmd, **kwargs):
+        launched["cmd"] = cmd
+        return DummyProcess()
+
+    monkeypatch.setattr("pansyncer.rigcheck.subprocess.Popen", fake_popen)
+
+    assert checker._ensure_rigctld() is True
+    assert "-t" in launched["cmd"]
+    port_index = launched["cmd"].index("-t") + 1
+    assert launched["cmd"][port_index] == "7777"
+
+
+def test_stream_reader_ignores_none_stream():
+    checker = make_checker()
+
+    checker._stream_reader(None, is_error=False)
+
+    assert checker.logger.messages == []
+
+
+def test_reset_socket_clears_rig_freq_and_closes_socket():
+    display = DummyDisplay()
+    checker = make_checker(display=display)
+    sock = DummySocket()
+    checker._sock = sock
+    checker.rig_freq = 14_200_000
+
+    checker._reset_socket()
+
+    assert checker.rig_freq is None
+    assert checker._sock is None
+    assert sock.closed is True
+    assert display.rig_states[-1] is False
+
+
+def test_check_rig_invalid_reply_clears_stale_rig_freq(monkeypatch):
+    display = DummyDisplay()
+    checker = make_checker(display=display)
+    checker.rig_freq = 14_200_000
+    checker._sock = DummySocket(recv_data=b"not-a-frequency\n")
+
+    monkeypatch.setattr(checker, "_ensure_rigctld", lambda: True)
+    monkeypatch.setattr(checker, "_ensure_socket", lambda: None)
+
+    assert checker.check_rig() is False
+    assert checker.rig_freq is None
+    assert display.rig_states[-1] is False
+
+
+def test_check_rig_recv_error_clears_stale_rig_freq(monkeypatch):
+    display = DummyDisplay()
+    checker = make_checker(display=display)
+    checker.rig_freq = 14_200_000
+    checker._sock = DummySocket(fail_recv=True)
+
+    monkeypatch.setattr(checker, "_ensure_rigctld", lambda: True)
+    monkeypatch.setattr(checker, "_ensure_socket", lambda: None)
+
+    assert checker.check_rig() is False
+    assert checker.rig_freq is None
+    assert display.rig_states[-1] is False
