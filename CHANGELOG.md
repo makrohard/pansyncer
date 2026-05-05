@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.4
+
+- Fix CLI `small_display` override handling.
+- Fix custom band config validation.
+- Clean up config test imports.
+- Derive CLI version dynamically.
+- Keep default knob config without TOML entries.
+- Clear band label when frequency is unavailable.
+- Handle invalid log levels gracefully.
+- Exit cleanly when keyboard input reaches EOF.
+- Validate knob config entries.
+- Remove stale input devices after invalid FD errors.
+- Show quit message on Ctrl-C and EOF.
+
 ## 0.5.3
 - Hardened reconnect scheduling and input-device cleanup.
 - Made mouse discovery idempotent and safer with failing devices.

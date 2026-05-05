@@ -1,16 +1,11 @@
 import time
-
+import pytest
 from pansyncer.main import PanSyncer
-
-
-class FakeDeviceHandler:
-    def tick(self, now):
-        raise KeyboardInterrupt
 
 
 class FakeSync:
     def tick(self, now):
-        raise AssertionError("sync.tick should not be called after KeyboardInterrupt")
+        raise AssertionError("sync.tick should not be called after quit exception")
 
 
 class FakeDisplay:
@@ -25,12 +20,21 @@ class FakeDisplay:
         self.draws.append(now)
 
     def check_resize(self, now):
-        raise AssertionError("check_resize should not be called after KeyboardInterrupt")
+        raise AssertionError("check_resize should not be called after quit exception")
 
 
-def test_main_loop_logs_quit_message_on_keyboard_interrupt(monkeypatch):
+class FakeDeviceHandler:
+    def __init__(self, exc):
+        self.exc = exc
+
+    def tick(self, now):
+        raise self.exc
+
+
+@pytest.mark.parametrize("exc", [KeyboardInterrupt, InterruptedError, EOFError])
+def test_main_loop_logs_quit_message_on_interrupt_like_exceptions(monkeypatch, exc):
     app = PanSyncer.__new__(PanSyncer)
-    app.device_handler = FakeDeviceHandler()
+    app.device_handler = FakeDeviceHandler(exc)
     app.sync = FakeSync()
     app.display = FakeDisplay()
 

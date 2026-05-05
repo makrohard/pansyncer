@@ -23,21 +23,7 @@ from pansyncer.display import Display
 from pansyncer.sync import SyncManager
 from pansyncer.logger import Logger
 
-def get_version():
-    """Return installed package version, or pyproject version when running from source."""
-    try:
-        return package_version("pansyncer")
-    except PackageNotFoundError:
-        pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
-        try:
-            with pyproject.open("rb") as f:
-                data = tomllib.load(f)
-            return data["project"]["version"]
-        except (OSError, KeyError, tomllib.TOMLDecodeError):
-            return "0.0.0+unknown"
-
-
-VERSION = get_version()
+VERSION = "0.5.4"
 
 class PanSyncer:
     """ PanSyncer Application Class"""

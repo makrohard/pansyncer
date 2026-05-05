@@ -2,7 +2,6 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from pansyncer.main import get_version
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -59,9 +58,3 @@ daemon = true
     assert result.returncode == 2
     assert "[CONFIG ERROR]" in result.stderr
     assert "Invalid TOML" in result.stderr
-
-def test_get_version_returns_string():
-    value = get_version()
-
-    assert isinstance(value, str)
-    assert value
