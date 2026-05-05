@@ -129,3 +129,14 @@ def test_close_removes_all_handlers():
     logger.close()
 
     assert raw_logger.handlers == []
+
+def test_logger_invalid_log_level_falls_back_to_info():
+    display = FakeDisplay()
+    logger = Logger("test_logger_invalid_level", display=display, level="DEBUGG")
+
+    try:
+        logger.log("still works", "INFO")
+
+        assert display.lines == ["[INFO] still works"]
+    finally:
+        logger.close()
