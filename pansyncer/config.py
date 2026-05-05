@@ -110,11 +110,7 @@ class Config:
         cfg.knobs = []
         for entry in data.get('knobs', []):                                             # Read knobs definition
             cfg.knobs.append(KnobConfig(**entry))
-                                                                                        # Read bands
-        tbl = data.get("bands") or {}
-        region = tbl.get("region")
-        entries = tbl.get(region)
-        cfg.bands = [Band(**e) for e in entries] if isinstance(entries, list) else list(DEFAULT_BANDS)
+        cfg.bands = cls._load_bands(data)                                           # Read bands
                                                                                         # overlay CLI args
         for key, val in vars(args).items():
             if val is None:

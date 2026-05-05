@@ -1,9 +1,5 @@
 import pytest
 from types import SimpleNamespace
-
-from pansyncer.config import Config
-from types import SimpleNamespace
-
 from pansyncer.config import Config
 
 
@@ -273,114 +269,116 @@ daemon = true
     assert "[CONFIG ERROR] Invalid TOML FILE" in captured.err
     assert str(config_path) in captured.err
 
-    def assert_config_error_2(config_path, capsys):
-        args = make_args(config_path)
 
-        with pytest.raises(SystemExit) as excinfo:
-            Config.from_args_and_file(args)
 
-        assert excinfo.value.code == 2
-        captured = capsys.readouterr()
-        assert "[CONFIG ERROR]" in captured.err
+def assert_config_error_2(config_path, capsys):
+    args = make_args(config_path)
 
-    def test_toml_unsorted_band_entries_are_sorted(tmp_path):
-        config_path = write_config(
-            tmp_path,
-            """
-    [bands]
-    region = "test"
+    with pytest.raises(SystemExit) as excinfo:
+        Config.from_args_and_file(args)
 
-    test = [
-      { name = " BBm", start = 3.000, goto = 3.100, end = 3.200 },
-      { name = " AAm", start = 1.000, goto = 1.100, end = 1.200 }
-    ]
-    """,
-        )
-        args = make_args(config_path)
+    assert excinfo.value.code == 2
+    captured = capsys.readouterr()
+    assert "[CONFIG ERROR]" in captured.err
 
-        cfg = Config.from_args_and_file(args)
+def test_toml_unsorted_band_entries_are_sorted(tmp_path):
+    config_path = write_config(
+        tmp_path,
+        """
+[bands]
+region = "test"
 
-        assert [band.name for band in cfg.bands] == [" AAm", " BBm"]
-        assert [band.start for band in cfg.bands] == [1.000, 3.000]
+test = [
+  { name = " BBm", start = 3.000, goto = 3.100, end = 3.200 },
+  { name = " AAm", start = 1.000, goto = 1.100, end = 1.200 }
+]
+""",
+    )
+    args = make_args(config_path)
 
-    def test_toml_band_goto_outside_range_is_repaired_to_midpoint_on_100_hz_grid(tmp_path):
-        config_path = write_config(
-            tmp_path,
-            """
-    [bands]
-    region = "test"
+    cfg = Config.from_args_and_file(args)
 
-    test = [
-      { name = " XXm", start = 1.00005, goto = 9.000, end = 1.00024 }
-    ]
-    """,
-        )
-        args = make_args(config_path)
+    assert [band.name for band in cfg.bands] == [" AAm", " BBm"]
+    assert [band.start for band in cfg.bands] == [1.000, 3.000]
 
-        cfg = Config.from_args_and_file(args)
+def test_toml_band_goto_outside_range_is_repaired_to_midpoint_on_100_hz_grid(tmp_path):
+    config_path = write_config(
+        tmp_path,
+        """
+[bands]
+region = "test"
 
-        assert cfg.bands[0].goto == 1.0001
+test = [
+  { name = " XXm", start = 1.00005, goto = 9.000, end = 1.00024 }
+]
+""",
+    )
+    args = make_args(config_path)
 
-    def test_toml_band_missing_goto_is_repaired_to_midpoint_on_100_hz_grid(tmp_path):
-        config_path = write_config(
-            tmp_path,
-            """
-    [bands]
-    region = "test"
+    cfg = Config.from_args_and_file(args)
 
-    test = [
-      { name = " XXm", start = 1.00005, end = 1.00024 }
-    ]
-    """,
-        )
-        args = make_args(config_path)
+    assert cfg.bands[0].goto == 1.0001
 
-        cfg = Config.from_args_and_file(args)
+def test_toml_band_missing_goto_is_repaired_to_midpoint_on_100_hz_grid(tmp_path):
+    config_path = write_config(
+        tmp_path,
+        """
+[bands]
+region = "test"
 
-        assert cfg.bands[0].goto == 1.0001
+test = [
+  { name = " XXm", start = 1.00005, end = 1.00024 }
+]
+""",
+    )
+    args = make_args(config_path)
 
-    def test_toml_band_entry_missing_required_field_exits_with_config_error(tmp_path, capsys):
-        config_path = write_config(
-            tmp_path,
-            """
-    [bands]
-    region = "test"
+    cfg = Config.from_args_and_file(args)
 
-    test = [
-      { name = " XXm", goto = 1.500, end = 2.000 }
-    ]
-    """,
-        )
+    assert cfg.bands[0].goto == 1.0001
 
-        assert_config_error_2(config_path, capsys)
+def test_toml_band_entry_missing_required_field_exits_with_config_error(tmp_path, capsys):
+    config_path = write_config(
+        tmp_path,
+        """
+[bands]
+region = "test"
 
-    def test_toml_band_entry_invalid_range_exits_with_config_error(tmp_path, capsys):
-        config_path = write_config(
-            tmp_path,
-            """
-    [bands]
-    region = "test"
+test = [
+  { name = " XXm", goto = 1.500, end = 2.000 }
+]
+""",
+    )
 
-    test = [
-      { name = " XXm", start = 2.000, goto = 1.500, end = 1.000 }
-    ]
-    """,
-        )
+    assert_config_error_2(config_path, capsys)
 
-        assert_config_error_2(config_path, capsys)
+def test_toml_band_entry_invalid_range_exits_with_config_error(tmp_path, capsys):
+    config_path = write_config(
+        tmp_path,
+        """
+[bands]
+region = "test"
 
-    def test_toml_band_entries_must_not_overlap_exits_with_config_error(tmp_path, capsys):
-        config_path = write_config(
-            tmp_path,
-            """
-    [bands]
-    region = "test"
+test = [
+  { name = " XXm", start = 2.000, goto = 1.500, end = 1.000 }
+]
+""",
+    )
 
-    test = [
-      { name = " AAm", start = 1.000, goto = 1.100, end = 2.000 },
-      { name = " BBm", start = 1.900, goto = 2.100, end = 2.200 }
-    ]
-    """,
-        )
+    assert_config_error_2(config_path, capsys)
 
-        assert_config_error_2(config_path, capsys)
+def test_toml_band_entries_must_not_overlap_exits_with_config_error(tmp_path, capsys):
+    config_path = write_config(
+        tmp_path,
+        """
+[bands]
+region = "test"
+
+test = [
+  { name = " AAm", start = 1.000, goto = 1.100, end = 2.000 },
+  { name = " BBm", start = 1.900, goto = 2.100, end = 2.200 }
+]
+""",
+    )
+
+    assert_config_error_2(config_path, capsys)
