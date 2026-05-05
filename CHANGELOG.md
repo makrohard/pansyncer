@@ -5,7 +5,7 @@
 - Fix CLI `small_display` override handling.
 - Fix custom band config validation.
 - Clean up config test imports.
-- Derive CLI version dynamically.
+- ~~Derive CLI version dynamically.~~
 - Keep default knob config without TOML entries.
 - Clear band label when frequency is unavailable.
 - Handle invalid log levels gracefully.
