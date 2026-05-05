@@ -797,13 +797,17 @@ class SyncManager:
     # # # # # # # # # # # # # # # # #
 
     def _log_rig_change(self, wait, now):
-        """Log Rig frequency, ."""
-        if self.log_file is not None and self._last_rig_change is not None and not self._rig_reported:
-            if now - self._last_rig_change > wait:
-                ts = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-                line = f"{ts} {self.radio['rig']['freq_cur']}\n"
-                self._write_log(line)
-                self._rig_reported = True
+        """Log Rig frequency"""
+        if self.log_file is None or self._last_rig_change is None or self._rig_reported:
+            return
+        freq = self.radio['rig']['freq_cur']
+        if freq is None:
+            return
+        if now - self._last_rig_change > wait:
+            ts = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+            line = f"{ts} {freq}\n"
+            self._write_log(line)
+            self._rig_reported = True
 
     def _init_log(self, logfile_path):
         """Initialize logfile: open and write header if path given."""
