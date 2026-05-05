@@ -19,6 +19,8 @@ class DeviceRegister:
 
     def __init__(self, cfg, initial=None, logger=None):
         self.cfg = cfg
+        self.logger = logger
+
         if initial is not None:
             devs = set(initial)
         else:
@@ -28,10 +30,15 @@ class DeviceRegister:
             else:
                 devs.add("keyboard")
 
+        unknown = devs - self._known_devices()
+        if unknown:
+            if self.logger:
+                self.logger.log(f"Ignoring unknown devices: {', '.join(sorted(unknown))}", "WARNING")
+            devs -= unknown
+
         self._devices = devs
         self._on_add = []
         self._on_remove = []
-        self.logger = logger
                                                                                                    # Subscription API
     def on_add(self, callback):
         """Register callback for device additions."""
@@ -43,25 +50,39 @@ class DeviceRegister:
                                                                                                     # Mutation API
     def add(self, dev):
         """Enable a device and notify subscribers."""
+        if not self._is_known(dev):
+            self._reject_unknown(dev)
+            return False
+
         if dev not in self._devices:
             self._devices.add(dev)
             for fn in self._on_add:
                 fn(dev)
+        return True
 
     def remove(self, dev):
         """Disable a device and notify subscribers."""
+        if not self._is_known(dev):
+            self._reject_unknown(dev)
+            return False
+
         if dev in self._devices:
             self._devices.remove(dev)
             for fn in self._on_remove:
                 fn(dev)
+        return True
 
     def toggle(self, dev):
         """Toggle a device on/off."""
-        # Prevent disabling both radios
+        if not self._is_known(dev):
+            self._reject_unknown(dev)
+            return False
+
+                                                                                                   # Prevent disabling last radio
         if dev in self.cfg.devices.radios and dev in self._devices:
-            other = next(r for r in self.cfg.devices.radios if r != dev)
-            if other not in self._devices:
-                if self.logger: self.logger.log(f"Cannot disable both {dev} and {other}", "ERROR")
+            enabled_radios = self._devices & set(self.cfg.devices.radios)
+            if len(enabled_radios) <= 1:
+                if self.logger: self.logger.log(f"Cannot disable last radio device: {dev}", "ERROR")
                 beep()
                 return False
                                                                                                    # Perform the toggle
@@ -78,3 +99,16 @@ class DeviceRegister:
     def list(self):
         """Return a snapshot of all enabled devices."""
         return set(self._devices)
+
+    def _known_devices(self):
+        """Return all device names accepted by the register."""
+        return set(self.cfg.devices.device_map.values()) | set(self.cfg.devices.radios) | {"keyboard"}
+
+    def _is_known(self, dev):
+        """Return True if dev is a known device name."""
+        return dev in self._known_devices()
+
+    def _reject_unknown(self, dev):
+        """Log and reject an unknown device name."""
+        if self.logger: self.logger.log(f"Unknown device: {dev}", "ERROR")
+        beep()

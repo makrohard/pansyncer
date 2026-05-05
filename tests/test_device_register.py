@@ -114,7 +114,7 @@ def test_toggle_refuses_to_disable_last_radio(monkeypatch):
 
     assert devices.enabled("rig") is True
     assert beep_calls == ["beep"]
-    assert any("Cannot disable both" in msg for _, msg in logger.messages)
+    assert any("Cannot disable last radio device" in msg for _, msg in logger.messages)
 
 
 def test_toggle_radio_allowed_when_other_radio_is_enabled():
@@ -128,3 +128,53 @@ def test_toggle_radio_allowed_when_other_radio_is_enabled():
     assert devices.toggle("rig") is True
     assert devices.enabled("rig") is True
     assert devices.enabled("gqrx") is True
+
+def test_unknown_initial_devices_are_ignored():
+    cfg = Config()
+    cfg.main.daemon = False
+    cfg.devices.enabled = ["rig", "keyboard", "bogus"]
+
+    devices = DeviceRegister(cfg)
+
+    assert devices.enabled("rig") is True
+    assert devices.enabled("keyboard") is True
+    assert devices.enabled("bogus") is False
+
+
+def test_toggle_unknown_device_is_rejected(monkeypatch):
+    cfg = Config()
+    devices = DeviceRegister(cfg)
+    beeps = []
+
+    monkeypatch.setattr("pansyncer.device_register.beep", lambda: beeps.append(True))
+
+    assert devices.toggle("bogus") is False
+    assert devices.enabled("bogus") is False
+    assert beeps == [True]
+
+
+def test_add_unknown_device_is_rejected(monkeypatch):
+    cfg = Config()
+    devices = DeviceRegister(cfg)
+    added = []
+    beeps = []
+
+    devices.on_add(added.append)
+    monkeypatch.setattr("pansyncer.device_register.beep", lambda: beeps.append(True))
+
+    assert devices.add("bogus") is False
+    assert devices.enabled("bogus") is False
+    assert added == []
+    assert beeps == [True]
+
+
+def test_cannot_disable_last_radio_device(monkeypatch):
+    cfg = Config()
+    devices = DeviceRegister(cfg, initial=["rig"])
+    beeps = []
+
+    monkeypatch.setattr("pansyncer.device_register.beep", lambda: beeps.append(True))
+
+    assert devices.toggle("rig") is False
+    assert devices.enabled("rig") is True
+    assert beeps == [True]
