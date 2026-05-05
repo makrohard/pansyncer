@@ -1,7 +1,6 @@
 # Changelog
 
 ## 0.5.4
-
 - Fix CLI `small_display` override handling.
 - Fix custom band config validation.
 - Clean up config test imports.
