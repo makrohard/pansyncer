@@ -274,3 +274,11 @@ def test_read_stdin_buffers_incomplete_escape_sequence(monkeypatch):
     assert keyboard.read_stdin(123, now=10.1) is False
     assert keyboard._input_buf == bytearray()
     assert sync.nudges == [100]
+
+def test_read_stdin_returns_quit_on_eof(monkeypatch):
+    keyboard = make_keyboard()
+
+    monkeypatch.setattr(os, "read", lambda fd, size: b"")
+
+    assert keyboard.read_stdin(123, now=10.0) is True
+    assert keyboard._input_buf == bytearray()
