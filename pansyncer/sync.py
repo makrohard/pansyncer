@@ -439,6 +439,7 @@ class SyncManager:
             return
         freq_hz = self.get_frequency()
         if freq_hz is None:
+            self.display.set_band_name("")
             return
         band_name = self.bands.band_name(freq_hz / 1_000_000)
         self.display.set_band_name(band_name)

@@ -7,6 +7,34 @@ from pansyncer.sync import SyncManager
 class DummySocket:
     pass
 
+class DummyDisplay:
+    def __init__(self):
+        self.band_names = []
+
+    def set_band_name(self, name):
+        self.band_names.append(name)
+
+def test_update_band_clears_band_name_when_frequency_is_unavailable():
+    cfg = Config()
+    cfg.main.daemon = True
+    cfg.devices.enabled = ["rig"]
+
+    devices = DeviceRegister(cfg)
+    step = StepController()
+    display = DummyDisplay()
+    sync = SyncManager(cfg, devices, step, display=display)
+
+    connect_radio(sync, "rig", 14_125_000)
+
+    sync._update_band()
+
+    assert display.band_names[-1] == " 20m"
+
+    sync.radio["rig"]["freq_cur"] = None
+
+    sync._update_band()
+
+    assert display.band_names[-1] == ""
 
 def make_sync(enabled=("rig", "gqrx"), ifreq=None):
     cfg = Config()
