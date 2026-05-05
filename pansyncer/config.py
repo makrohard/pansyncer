@@ -124,9 +124,6 @@ class Config:
         if not cfg.knobs:
             cfg.knobs = [KnobConfig()]
 
-        if not cfg.knobs:
-            cfg.knobs = [KnobConfig()]
-
         cfg.bands = cls._load_bands(data)                                               # Read bands
                                                                                         # overlay CLI args
         for key, val in vars(args).items():
