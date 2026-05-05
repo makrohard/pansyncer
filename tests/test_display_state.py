@@ -5,14 +5,19 @@ from pansyncer.device_register import DeviceRegister
 from pansyncer.display import Display
 
 
-def make_display(*, enabled=("rig", "gqrx", "keyboard", "knob", "mouse"), small=False):
+def make_display(
+    *,
+    enabled=("rig", "gqrx", "keyboard", "knob", "mouse"),
+    small=False,
+    is_tty=False,
+):
     cfg = Config()
     cfg.main.daemon = False
     cfg.devices.enabled = list(enabled)
     cfg.display.small_display = small
 
     devices = DeviceRegister(cfg)
-    return Display(cfg, devices, is_tty=False)
+    return Display(cfg, devices, is_tty=is_tty)
 
 
 def clear_redraw(display):
@@ -194,3 +199,34 @@ def test_draw_clears_stale_input_indicators(monkeypatch):
     assert display._keyboard_input == "   "
     assert display._mouse_input == "   "
     assert display._knob_input == "   "
+
+def test_toggle_small_display_does_not_write_ansi_clear_when_not_tty(capsys):
+    display = make_display(is_tty=False)
+
+    display.toggle_small_display()
+
+    captured = capsys.readouterr()
+
+    assert "\033[2J\033[H" not in captured.out
+    assert display.cfg.display.small_display is True
+
+
+def test_toggle_small_display_writes_ansi_clear_when_tty(capsys):
+    display = make_display(is_tty=True)
+
+    capsys.readouterr()
+
+    display.toggle_small_display()
+
+    captured = capsys.readouterr()
+
+    assert "\033[2J\033[H" in captured.out
+    assert display.cfg.display.small_display is True
+
+
+def test_set_ifreq_rounds_to_nearest_hz():
+    display = make_display(is_tty=False)
+
+    display.set_ifreq(73.0950006)
+
+    assert display._ifreq == 73_095_001

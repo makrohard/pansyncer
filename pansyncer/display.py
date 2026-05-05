@@ -134,7 +134,7 @@ class Display:
         self._frame_parts.clear()                                                  # start new frame
         self._frame_parts.append("\033[H")                                         # move cursor to home
 
-        small = self.cfg.display.small_display                 # draw header
+        small = self.cfg.display.small_display                                     # draw header
         self._frame_parts.append(self._header_small if small else self._header)
         first_device_row = 2 if small else 4
 
@@ -202,11 +202,13 @@ class Display:
                 self._frame_parts.append(f"\033[{r};{self._status_col}H\033[{color}m{'CON' if self._mouse_connected else 'DIS'}\033[0m")
                 self._frame_parts.append(f"\033[{r};{self._input_col}H{self._mouse_input:<3}")
 
-            r = self._row_map['keyboard']                                          # Keyboard (always enabled)
-            self._frame_parts.append(f"\033[{r};{self._status_col}H{'':<{self._status_width}}")
-            self._frame_parts.append(f"\033[{r};{self._input_col}H{self._keyboard_input:<3}")
-            col = self._freq_col - len(self._band_name)                            # Band name
-            self._frame_parts.append(f"\033[{r};{col}H\033[1;96m{self._band_name}\033[0m")
+            keyboard_row = self._row_map.get('keyboard')                           # Keyboard (always enabled)
+            if keyboard_row is not None:
+                r = keyboard_row
+                self._frame_parts.append(f"\033[{r};{self._status_col}H{'':<{self._status_width}}")
+                self._frame_parts.append(f"\033[{r};{self._input_col}H{self._keyboard_input:<3}")
+                col = self._freq_col - len(self._band_name)                        # Band name
+                self._frame_parts.append(f"\033[{r};{col}H\033[1;96m{self._band_name}\033[0m")
 
         base_row = max(self._row_map.values()) + 1 if self._row_map else first_device_row # Logs
                                                                                    # One line log in small_display
@@ -346,8 +348,9 @@ class Display:
         self.cfg.display.small_display = not self.cfg.display.small_display
         self._row_map.clear()
         self._last_log_end_row = 0
-        sys.stdout.write("\033[2J\033[H")                                         # Clear screen and redraw on toggle
-        sys.stdout.flush()
+        if self._is_tty:
+            sys.stdout.write("\033[2J\033[H")                                         # Clear screen and redraw on toggle
+            sys.stdout.flush()
         super().__setattr__('_redraw', True)
 
     @synchronized
