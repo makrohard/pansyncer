@@ -12,53 +12,6 @@ class FakeEvent:
         self.code = code
         self.value = value
 
-    class FakeInputDevice:
-        def __init__(
-                self,
-                fd,
-                events,
-                path=None,
-                name="Fake Input Device",
-                caps=None,
-        ):
-            self.fd = fd
-            self.path = path if path is not None else f"/dev/input/event{fd}"
-            self.name = name
-            self._events = list(events)
-            self.closed = False
-            self.close_calls = 0
-            self.grab_calls = 0
-            self.ungrab_calls = 0
-            self._caps = caps if caps is not None else {
-                evdev.ecodes.EV_REL: [evdev.ecodes.REL_WHEEL],
-                evdev.ecodes.EV_KEY: [evdev.ecodes.BTN_MIDDLE],
-            }
-
-        def capabilities(self):
-            return self._caps
-
-        def read(self):
-            events = self._events
-            self._events = []
-            return events
-
-        def grab(self):
-            self.grab_calls += 1
-
-        def ungrab(self):
-            self.ungrab_calls += 1
-
-        def close(self):
-            self.close_calls += 1
-            self.closed = True
-
-    def read(self):
-        events = self._events
-        self._events = []
-        return events
-
-    def close(self):
-        self.closed = True
 
 class FakeInputDevice:
     def __init__(
