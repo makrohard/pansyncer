@@ -187,7 +187,7 @@ class PanSyncer:
             help="Require rigctld already running; do not auto-start")
         parser.add_argument("-l", "--log", dest="freq_log_path", nargs="?", const="pansyncer.log",
             help="Enable frequency logging; optionally specify logfile path")
-        parser.add_argument("-s", "--small_display", action="store_true", default=None,
+        parser.add_argument("-s","--small-display",dest="small_display",action="store_true",
             help="Show minimal display. Display only essential information for small screens.")
         parser.add_argument("-b", "--daemon", action="store_true", default=None,
             help="Disable inputs and graphical display")
