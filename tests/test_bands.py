@@ -1,6 +1,5 @@
 import pansyncer.bands as bands_module
 from pansyncer.bands import Band, Bands
-from pansyncer.bands import Bands
 
 
 def test_band_name_inside_default_band():
