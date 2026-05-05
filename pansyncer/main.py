@@ -124,7 +124,9 @@ class PanSyncer:
                     self.display.check_resize(now)
                     self.display.draw(now)
         except (KeyboardInterrupt, InterruptedError, EOFError):
-            pass
+            if self.display:
+                self.display.log("[QUIT] shutting down...")
+                self.display.draw(now)
 
     def cleanup(self):
         """Shut down sync manager and restore terminal settings."""
