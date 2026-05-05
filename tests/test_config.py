@@ -390,3 +390,15 @@ def test_missing_knob_entries_use_default_knob_config(tmp_path):
 
     assert len(cfg.knobs) == 1
     assert cfg.knobs[0].target_name == "Wired KeyBoard Consumer Control"
+
+def test_toml_knob_entry_unknown_field_exits_with_config_error(tmp_path, capsys):
+    config_path = write_config(
+        tmp_path,
+        """
+[[knobs]]
+target_name = "Test Knob"
+unknown_field = 123
+""",
+    )
+
+    assert_config_error_2(config_path, capsys)

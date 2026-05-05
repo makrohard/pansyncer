@@ -107,9 +107,22 @@ class Config:
                     if hasattr(section_obj, key):
                         setattr(section_obj, key, val)
 
-        cfg.knobs = []                                                                  # Read knobs definition
-        for entry in data.get('knobs', []):
-            cfg.knobs.append(KnobConfig(**entry))
+                                                                                        # Read knobs definition
+        knob_entries = data.get("knobs", [])
+        if not isinstance(knob_entries, list):
+            cls._config_error("[[knobs]] must be a TOML array of tables")
+
+        cfg.knobs = []
+        for index, entry in enumerate(knob_entries):
+            if not isinstance(entry, dict):
+                cls._config_error(f"Invalid knob entry #{index}: expected table/object")
+            try:
+                cfg.knobs.append(KnobConfig(**entry))
+            except TypeError as e:
+                cls._config_error(f"Invalid knob entry #{index}: {e}", e)
+
+        if not cfg.knobs:
+            cfg.knobs = [KnobConfig()]
 
         if not cfg.knobs:
             cfg.knobs = [KnobConfig()]
