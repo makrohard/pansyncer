@@ -161,9 +161,9 @@ key_down                   = 114
 key_step                   = 113
 
 [[knobs]]
-target_name = "PanSyncer Fake VFO Knob"
-target_vendor = 0x1234
-target_product = 0x5678
-key_up = 115
-key_down = 114
-key_step = 113
+target_name                = "PanSyncer Fake VFO Knob"
+target_vendor              = 0x1234
+target_product             = 0x5678
+key_up                     = 115
+key_down                   = 114
+key_step                   = 113
