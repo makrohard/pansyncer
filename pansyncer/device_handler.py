@@ -54,7 +54,7 @@ class DeviceHandler:
             self.cfg,
             self.logger)
 
-        if self.devices.enabled('rig') and not self.cfg.main.no_auto_rig:
+        if self.devices.enabled('rig'):
             self._on_rig_added('rig')
 
         if self.devices.enabled('knob'):
