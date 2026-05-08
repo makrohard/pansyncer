@@ -12,19 +12,20 @@ class FakeLogger:
     def log(self, msg, level="INFO"):
         self.messages.append((level, msg))
 
-
 def make_scheduler(
-    *,
-    reconnect_interval=0.01,
-    max_workers=2,
-    backoff_cap=0.08,
-    jitter=0.0,
-    slow_threshold=999.0,
+        *,
+        reconnect_interval=0.01,
+        max_workers=2,
+        backoff_step=0.01,
+        backoff_cap=0.08,
+        jitter=0.0,
+        slow_threshold=999.0,
 ):
     cfg = SimpleNamespace(
         reconnect_scheduler=SchedulerConfig(
             reconnect_interval=reconnect_interval,
             max_workers=max_workers,
+            backoff_step=backoff_step,
             backoff_cap=backoff_cap,
             jitter=jitter,
             slow_threshold=slow_threshold,
@@ -119,6 +120,49 @@ def test_failed_task_backoff_is_capped():
         rec = scheduler.tasks[task]
         assert rec.failures == 2
         assert rec.interval == 0.02
+    finally:
+        scheduler.shutdown(wait=True)
+
+def test_failed_task_uses_additive_backoff_sequence_and_cap():
+    scheduler, _ = make_scheduler(
+        reconnect_interval=2.0,
+        backoff_step=1.0,
+        backoff_cap=4.0,
+        jitter=0.0,
+    )
+    calls = []
+
+    def task():
+        calls.append("run")
+        return False
+
+    try:
+        scheduler.register(task, tag="rig", backoff=True)
+
+        drive_until(
+            scheduler,
+            lambda: len(calls) == 1 and scheduler.tasks[task].future is None,
+        )
+        assert scheduler.tasks[task].failures == 1
+        assert scheduler.tasks[task].interval == 3.0
+
+        scheduler.tasks[task].next_run = time.monotonic()
+
+        drive_until(
+            scheduler,
+            lambda: len(calls) == 2 and scheduler.tasks[task].future is None,
+        )
+        assert scheduler.tasks[task].failures == 2
+        assert scheduler.tasks[task].interval == 4.0
+
+        scheduler.tasks[task].next_run = time.monotonic()
+
+        drive_until(
+            scheduler,
+            lambda: len(calls) == 3 and scheduler.tasks[task].future is None,
+        )
+        assert scheduler.tasks[task].failures == 3
+        assert scheduler.tasks[task].interval == 4.0
     finally:
         scheduler.shutdown(wait=True)
 

@@ -65,12 +65,13 @@ resize_check_interval      = 1.0                        # How often to check for
 log_lines                  = 7                          # Number of log lines to display in full mode
 log_lines_small            = 1                          # Number of log lines to display in small mode
 
-[reconnect_scheduler]                                   ### Reconnect Config
-reconnect_interval         = 3.0                        # Interval between reconnection attempts (seconds)
-max_workers                = 4                          # Maximum number of reconnect threads
-backoff_cap                = 60.0                       # Maximum backoff interval after repeated failures (seconds)
+[reconnect_scheduler]
+reconnect_interval         = 2.0                        # Interval between reconnection attempts (seconds)
+backoff_step               = 1.0                        # Backoff step to increase the interval after each failure (sec)
+backoff_cap                = 4.0                        # Maximum backoff interval after repeated failures (seconds)
 jitter                     = 0.10                       # Random jitter fraction to apply to each interval (0.0–1.0)
 slow_threshold             = 1.0                        # Threshold for considering a task “slow” (seconds)
+max_workers                = 4                          # Maximum number of reconnect threads
 
 [bands]
 region                     = "r1"                       ##### IARU Region -  choose: r1 | r2 | r3 | r3_jp
@@ -158,3 +159,11 @@ target_product             = 0x553a
 key_up                     = 115
 key_down                   = 114
 key_step                   = 113
+
+[[knobs]]
+target_name = "PanSyncer Fake VFO Knob"
+target_vendor = 0x1234
+target_product = 0x5678
+key_up = 115
+key_down = 114
+key_step = 113

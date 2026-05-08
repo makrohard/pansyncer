@@ -15,9 +15,10 @@ __all__ = ["SchedulerConfig", "ReconnectScheduler", "TaskRecord"]
 @dataclass
 class SchedulerConfig:
     """Default configuration"""
-    reconnect_interval: float = 3.0
+    reconnect_interval: float = 2.0
     max_workers: int        = 4
-    backoff_cap: float      = 60.0
+    backoff_step: float     = 1.0
+    backoff_cap: float      = 4.0
     jitter: float           = 0.10
     slow_threshold: float   = 1.0
 
@@ -42,7 +43,9 @@ class ReconnectScheduler:
         self.cfg = cfg
         self.logger = logger
         self.reconnect_interval = self.cfg.reconnect_scheduler.reconnect_interval
+        self.backoff_step = self.cfg.reconnect_scheduler.backoff_step
         self.backoff_cap = self.cfg.reconnect_scheduler.backoff_cap
+        self.jitter = self.cfg.reconnect_scheduler.jitter
         self.jitter = self.cfg.reconnect_scheduler.jitter
         self.slow_threshold = self.cfg.reconnect_scheduler.slow_threshold
         self.executor = concurrent.futures.ThreadPoolExecutor(
@@ -136,14 +139,19 @@ class ReconnectScheduler:
             rec.last_duration = duration
             if duration > self.slow_threshold:
                 self.logger.log("%s slow %.1fms" % (fn.__name__, duration * 1000.0), "DEBUG")
+
             if rec.backoff:
                 if success:
                     rec.failures = 0
                     rec.interval = self.reconnect_interval
                 else:
                     rec.failures += 1
-                    rec.interval = min(self.reconnect_interval * (2 ** rec.failures), self.backoff_cap)
+                    rec.interval = min(
+                        self.reconnect_interval + (self.backoff_step * rec.failures),
+                        self.backoff_cap
+                    )
                 rec.interval *= random.uniform(1 - self.jitter, 1 + self.jitter)
+                rec.interval = min(rec.interval, self.backoff_cap)
             target = now + rec.interval
             if rec.next_run < target:
                 rec.next_run = target
