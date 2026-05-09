@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.2
+- Add GitHub Codespaces PanSyncer environment: tmux-based demo with radio emulator control and CAT watch panes.
+
 # 0.6.1
 - updated EBADF hotplug test
 
