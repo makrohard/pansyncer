@@ -61,6 +61,7 @@ To set up an unknown knob, see: [Use a USB Volume Knob as VFO Knob](#use-a-usb-v
   * [Installation](#installation)
   * [Config file and command line arguments](#config-file-and-command-line-arguments)
   * [Running tests](#running-tests)
+  * [Hardware Emulation Testlab](#hardware-emulation-testlab)
 * [Usage](#usage)
   * [User Interface](#user-interface)
   * [Daemon mode](#daemon-mode)
@@ -202,6 +203,11 @@ python -m pytest
 ```
 The tests use fake devices and local test servers. They do not require hardware devices.
 
+### Hardware Emulation Testlab
+
+`testlab/` provides fake radios and fake input devices for manual testing without real hardware.
+
+See `testlab/README.md` for details.
 
 [TOC](#table-of-contents)
 ## Usage
