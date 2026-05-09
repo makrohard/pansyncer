@@ -1,7 +1,13 @@
 .venv/
 .idea/
 .coverage
+
+*.egg-info/
+build/
+dist/
+
 /pansyncer/tmp
 /pansyncer/tmp.py
+
 __pycache__/
 *.py[cod]
