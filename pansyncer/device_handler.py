@@ -142,7 +142,7 @@ class DeviceHandler:
                 fds.extend(mouse_fds)
             except (AttributeError, OSError) as e:
                 self.logger.log(f'mouse fds error: {e}', 'ERROR')
-                self.devices.remove('mouse')
+                self._refresh_mouse_connected('fd error')
                 mouse_fds = []
 
         fds = list(dict.fromkeys(fds))                                                  # De-duplicate FDs
@@ -158,10 +158,7 @@ class DeviceHandler:
             self.logger.log(f'select error: {e}', 'ERROR')
 
             if getattr(e, "errno", None) == errno.EBADF:
-                if kfd is not None and self.devices.enabled("knob"):
-                    self.devices.remove("knob")
-                if mouse_fds and self.devices.enabled("mouse"):
-                    self.devices.remove("mouse")
+                self._handle_bad_fds(stdin_fd, kfd, mouse_fds)
 
             return False
 
@@ -194,6 +191,67 @@ class DeviceHandler:
             if not self.devices.enabled('mouse') or self._mouse is None:
                 return False
             return self._mouse.ensure_connected()
+
+    def _refresh_mouse_connected(self, reason):
+        """Refresh mouse hardware state."""
+        with self._lifecycle_lock:
+            if not self.devices.enabled('mouse') or self._mouse is None:
+                return False
+            try:
+                return self._mouse.refresh()
+            except (AttributeError, OSError, IOError, ValueError, RuntimeError) as e:
+                self.logger.log(f'mouse refresh after {reason}: {e}', 'ERROR')
+                return False
+
+    def _refresh_knob_connected(self, reason):
+        """Reset knob hardware state."""
+        with self._lifecycle_lock:
+            if not self.devices.enabled('knob') or self._knob is None:
+                return False
+            try:
+                self._knob.disconnect()
+                return False
+            except (AttributeError, OSError, IOError, ValueError, RuntimeError) as e:
+                self.logger.log(f'knob refresh after {reason}: {e}', 'ERROR')
+                return False
+
+    @staticmethod
+    def _fd_is_valid(fd):
+        """Return False if fd is invalid."""
+        try:
+            select.select([fd], [], [], 0)
+            return True
+        except ValueError:
+            return False
+        except OSError as e:
+            return getattr(e, "errno", None) != errno.EBADF
+
+    def _handle_bad_fds(self, stdin_fd, kfd, mouse_fds):
+        """Handle EBADF by checking each FD."""
+        if stdin_fd is not None and not self._fd_is_valid(stdin_fd):
+            self.logger.log('stdin fd became invalid', 'ERROR')
+
+        if (
+            kfd is not None
+            and self.devices.enabled('knob')
+            and not self._fd_is_valid(kfd)
+        ):
+            self._refresh_knob_connected('bad fd')
+
+        if mouse_fds and self.devices.enabled('mouse'):
+            bad_mouse_fds = [
+                fd for fd in mouse_fds
+                if not self._fd_is_valid(fd)
+            ]
+            if bad_mouse_fds:
+                self._refresh_mouse_connected('bad fd')
+
+    def _check_rig_connected(self):
+        """Check rig only while it is still enabled and registered."""
+        with self._lifecycle_lock:
+            if not self.devices.enabled('rig') or self._rigchk is None:
+                return False
+            return self._rigchk.check_rig()
 
     def _check_rig_connected(self):
         """Check rig only while it is still enabled and registered."""

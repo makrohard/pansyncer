@@ -92,6 +92,18 @@ class MouseState:
             self.display.set_mouse(False)
         self.logger.log("Mouse disabled", "INFO")
 
+    def refresh(self):
+        """Close tracked mouse devices and rescan without disabling the logical device."""
+        for dev in list(self.mice):
+            try:
+                dev.close()
+            except OSError as e:
+                self.logger.log(f"Failed to close mouse device {e}", "WARN")
+
+        self.mice.clear()
+        self._discover_devices()
+        return bool(self.mice)
+
     def get_fds(self):
         """Return a list of file descriptors to poll."""
         return [dev.fd for dev in self.mice]
