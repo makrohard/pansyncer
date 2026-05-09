@@ -253,13 +253,6 @@ class DeviceHandler:
                 return False
             return self._rigchk.check_rig()
 
-    def _check_rig_connected(self):
-        """Check rig only while it is still enabled and registered."""
-        with self._lifecycle_lock:
-            if not self.devices.enabled('rig') or self._rigchk is None:
-                return False
-            return self._rigchk.check_rig()
-
     @property                                                                         ##### Properties
     def knob(self):
         if self._knob is None and self.devices.enabled('knob'):
