@@ -3,9 +3,16 @@
 PanSyncer is designed to synchronize the frequencies of a ham radio transceiver and an SDR receiver using Gqrx.
 External input devices like a USB Volume Knob, mouse or keyboard can be used to tune the frequency.
 
-## Quickstart
+## Browser Demo
 
 [![Start in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/makrohard/pansyncer?quickstart=1)
+
+then, start with:
+```bash
+./testlab/start_codespaces_testlab.sh
+```
+
+## Quickstart
 
 Essential steps to get PanSyncer up and running.
 
@@ -21,7 +28,7 @@ For the radio communication, `rigctld` is used. Install the `hamlib` package fro
 For Ubuntu, install `libhamlib-utils`.
 
 ### Install 
-  ```
+  ```bash
   git clone https://github.com/makrohard/pansyncer.git
   cd pansyncer
   pip install --user .
@@ -35,12 +42,12 @@ The default config runs in direct mode. To use iFreq mode, specify your intermed
 `pansyncer --ifreq 70.095`
 
 ### Run in a terminal
-  ```
+  ```bash
   pansyncer
   ```
 ### Commands
 Once running, press **?** for **help** on commands:
-```
+```text
 Sync On / Off    :  1 / 0
 Toggle devices   :  r = Rig,  g = Gqrx, m = Mouse, k = VFO Knob
 [...]
@@ -97,7 +104,7 @@ So I combined these requirements into one program. Here it is!
 ## Architecture
 
 A typical setup might look as follows:
-```
+```text
                                              +-------------------+
                         #############        | Input devices     |
           +-----------> # PanSyncer # <----- | Keyboard, Mouse,  |
@@ -144,13 +151,13 @@ On other distros, the package is usually named `hamlib`.
   * Enter its folder  
   * Install to ~/.local/bin (make sure that's in your PATH)  
 
-      ```
+      ```bash
       git clone https://github.com/makrohard/pansyncer.git
       cd pansyncer
       pip install --user .
       ```  
   * Run
-      ```
+      ```bash
       pansyncer --help
       ```
 
@@ -165,7 +172,7 @@ On other distros, the package is usually named `hamlib`.
   * Install requirements
   * Run PanSyncer as module
 
-      ```
+      ```bash
       git clone https://github.com/makrohard/pansyncer.git
       cd pansyncer
       python -m venv .venv
@@ -174,7 +181,7 @@ On other distros, the package is usually named `hamlib`.
       python -m pansyncer.main --help
       ```
   * Just remember, that you will have to activate the venv manually in each shell, before starting PanSyncer:
-      ```
+      ```bash
       source .venv/bin/activate
       python -m pansyncer.main --help
       ```
@@ -195,12 +202,12 @@ If the config file exists but contains invalid TOML, PanSyncer will abort startu
 
 For developers:  
 PanSyncer uses pytest for its automated test suite. From the repository root, install the development dependencies:
-```
+```bash
 python -m pip install -e ".[dev]"
 ```
 
 Run the tests:
-```
+```bash
 python -m pytest
 ```
 The tests use fake devices and local test servers. They do not require hardware devices.
@@ -228,7 +235,7 @@ Note:
 Keyboard cannot be disabled. It uses stdin and does not need any connection logic.  
 Rig has two connection statuses: Gray means "rigctld socket alive"; Green means "Getting frequency response from rig".
 
-```
+```text
  PanSyncer Control      iFreq
  Sync      ON   73.095.000 Hz
  Step                  100 Hz
@@ -241,7 +248,7 @@ Rig has two connection statuses: Gray means "rigctld socket alive"; Green means 
 
 Pressing **?** shows help:
 
-```
+```text
 [INFO] Change Frequency :  + / -, arrow keys, mouse or external VFO Knob
 [INFO] Sync On / Off    :  1 / 0
 [INFO] Change Step      :  Spacebar, middle mouse button or knob click
@@ -253,7 +260,7 @@ Pressing **?** shows help:
 
 For small screens, you can switch to a very minimalistic display mode:
 
-```
+```text
  Sync      ON          100 Hz
  Rig       CON  14.200.000 Hz
  Gqrx      CON  14.200.000 Hz
@@ -272,7 +279,7 @@ Pansyncer into the background and suppress all output:
 Be careful not to launch multiple instances, as they will block ports and grab devices.
 
 To list running instances:    
-```
+```bash
 ps ax | grep pansyncer  
 24258 pts/0    Sl+    0:00 python -m pansyncer.main -b  
 ```
@@ -372,7 +379,7 @@ Run:
 Then plug in the USB knob. Look for lines that show idVendor and idProduct.  
 In this example: idVendor=05ac, idProduct=0202 
 
-```
+```text
 [27531.159576] usb 1-2: new full-speed USB device number 17 using xhci_hcd
 [27531.284796] usb 1-2: New USB device found, idVendor=05ac, idProduct=0202, bcdDevice= 1.04
 [27531.284805] usb 1-2: New USB device strings: Mfr=0, Product=1, SerialNumber=0
@@ -390,12 +397,12 @@ A Knob may present multiple devices (Keyboard, System Control, Consumer Control,
 which even may all have the same name. We must find the correct one.
 
 Replace *Consumer Control* with your device name and run:
-```
+```bash
 grep -B1 -A5 "Consumer Control" /proc/bus/input/devices
 ```
 Example output:
 
-```
+```bash
 I: Bus=0003 Vendor=05ac Product=0202 Version=0110
 N: Name="Wired KeyBoard Consumer Control"
 P: Phys=usb-0000:00:14.0-2/input1
@@ -410,7 +417,7 @@ The line starting with `H:` shows the event node.
 
 Using that event node, run:
 
-```
+```bash
 sudo evtest /dev/input/event5
 ```
 
@@ -420,7 +427,7 @@ you do not need to change any permissions, which are explained later.
 
 Example output:
 
-```
+```bash
 Testing ... (interrupt to exit)
 Event: time 1753651144.743483, type 4 (EV_MSC), code 4 (MSC_SCAN), value c00e9
 Event: time 1753651144.743483, type 1 (EV_KEY), code 115 (KEY_VOLUMEUP), value 1
@@ -449,7 +456,7 @@ we will use later.
 
 By default, users often cannot access input devices. Add your user to the input group:
 
-```
+```bash
 sudo usermod -aG input $USER
 ```
 Log out and back in to apply the change.
@@ -463,13 +470,13 @@ Create a new file:
 And put the new rule there. The example below contains all knobs currently known to PanSyncer.  
 Make sure, that use your Device Name, ifVendor and idProduct.
 
-```
+```bash
 KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="Wired KeyBoard Consumer Control", ATTRS{idVendor}=="05ac", ATTRS{idProduct}=="0202", GROUP="input", MODE="0660"
 KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="LCTECH LCKEY", ATTRS{idVendor}=="1189", ATTRS{idProduct}=="8890", GROUP="input", MODE="0660"
 KERNEL=="event*", SUBSYSTEM=="input", ATTRS{name}=="413d:553a", ATTRS{idVendor}=="413d", ATTRS{idProduct}=="553a", GROUP="input", MODE="0660"
 ```
 Reload the udev rules to apply the changes:
-```
+```bash
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
@@ -480,7 +487,7 @@ You should now be able to use your knob as user.
 To make your knob known to PanSyncer, add a new `[[knobs]]` section  `pansyncer.toml` config file.
 Make sure to prefix target_vendor and target_product with 0x and to copy the target_name exactly.
 
-```
+```text
 [[knobs]]                                               ### Configure Knobs
 target_name    = "Wired KeyBoard Consumer Control"      # Device Identification
 target_vendor              = 0x05ac                     # Prefix 0x for hex value
