@@ -120,3 +120,28 @@ def test_poll_inputs_disconnects_only_bad_knob_fd_on_select_ebadf(monkeypatch):
     assert mouse_refreshes == []
     assert handler.devices.enabled("knob") is True
     assert handler.devices.enabled("mouse") is True
+
+    def test_poll_inputs_refreshes_knob_on_fd_error_without_removing_device(monkeypatch):
+        handler = make_handler_without_devices()
+        handler.devices._devices.update({"knob"})
+
+        refreshes = []
+
+        class FakeKnob:
+            def fd(self):
+                raise OSError("bad knob fd")
+
+            def disconnect(self):
+                refreshes.append("knob")
+
+        handler._knob = FakeKnob()
+
+        def fake_remove(dev):
+            raise AssertionError(f"device must not be removed on knob fd error: {dev}")
+
+        monkeypatch.setattr(handler.devices, "remove", fake_remove)
+
+        assert handler._poll_inputs(now=10.0) is False
+
+        assert refreshes == ["knob"]
+        assert handler.devices.enabled("knob") is True

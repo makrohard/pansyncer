@@ -132,7 +132,7 @@ class DeviceHandler:
                     fds.append(kfd)
             except (AttributeError, OSError) as e:
                 self.logger.log(f'knob fd error: {e}', 'ERROR')
-                self.devices.remove('knob')
+                self._refresh_knob_connected('fd error')
                 kfd = None
 
         mouse_fds = []                                                                  # Mouse FDs
