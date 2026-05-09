@@ -5,6 +5,8 @@ External input devices like a USB Volume Knob, mouse or keyboard can be used to 
 
 ## Quickstart
 
+[![Start in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/makrohard/pansyncer?quickstart=1)
+
 Essential steps to get PanSyncer up and running.
 
 ### Requirements
