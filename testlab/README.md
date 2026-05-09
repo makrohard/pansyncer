@@ -136,12 +136,6 @@ Control console:
 rlwrap nc 127.0.0.1 4537
 ```
 
-Start PanSyncer with fake inputs:
-
-```bash
-python -m pansyncer.main -d r g k m --rig-port 4533 --gqrx-port 7357 --no-auto-rig
-```
-
 ### Optional udev Setup
 
 Allow non-root access to `/dev/uinput`:
