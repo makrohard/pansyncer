@@ -1,5 +1,12 @@
 # Changelog
 
+# 0.6.0
+- Added hardware emulation testlab. It provides: rigctld and TCP endpoint, fake VFO knob and fake mouse. Controlled 
+via `nc`.
+- Fix mouse hotplug handling.
+- Adjust backoff for faster device reconnect
+- Enable RigCheck when --no-auto-rig is set
+
 ## 0.5.4
 - Fix CLI `small_display` override handling.
 - Fix custom band config validation.
