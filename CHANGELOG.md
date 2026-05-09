@@ -1,5 +1,8 @@
 # Changelog
 
+# 0.6.1
+- updated EBADF hotplug test
+
 # 0.6.0
 - Added hardware emulation testlab. It provides: rigctld and TCP endpoint, fake VFO knob and fake mouse. Controlled 
 via `nc`.
