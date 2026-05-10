@@ -1,7 +1,18 @@
 # PanSyncer
 
-PanSyncer is designed to synchronize the frequencies of a ham radio transceiver and an SDR receiver using Gqrx.
-External input devices like a USB Volume Knob, mouse or keyboard can be used to tune the frequency.
+PanSyncer is a Linux command-line tool with a terminal UI for synchronizing radios, SDR receivers and panadapter setups.
+
+It supports:
+
+- direct frequency sync between two radio interfaces
+- IF-offset / IF-tap panadapter setups
+- standalone control of a single radio or Gqrx
+- tuning by keyboard, mouse or USB volume knob
+- band switching from the terminal UI
+- optional frequency logging as a backup to regular QSO logging software
+
+PanSyncer controls radio interfaces through rigctld/Hamlib. By default, it starts rigctld configured to use FLRig as its
+backend. Gqrx is controlled through its remote-control interface.
 
 ## Browser Demo
 
