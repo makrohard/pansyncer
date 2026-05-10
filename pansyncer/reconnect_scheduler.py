@@ -24,18 +24,21 @@ class SchedulerConfig:
 
 @dataclass                                                                                       ##### Data structure
 class TaskRecord:
-    def __init__(self, fn=None, tag='', next_run=0.0, interval=0.0, backoff=True,
-                 failures=0, future=None, generation=0, last_duration=0.0, pending_result=None):
+    def __init__(self, fn=None, tag='', next_run=0.0, interval=0.0, base_interval=0.0,
+                 backoff=True, failures=0, future=None, generation=0, last_duration=0.0,
+                 pending_result=None, backoff_cap=None):
         self.fn = fn
         self.tag = tag
         self.next_run = next_run
         self.interval = interval
+        self.base_interval = base_interval or interval
         self.backoff = backoff
         self.failures = failures
         self.future = future
         self.generation = generation
         self.last_duration = last_duration
         self.pending_result = pending_result
+        self.backoff_cap = backoff_cap
                                                                                        ##### Scheduler
 class ReconnectScheduler:
     """ Schedule worker threads for periodic connection checks"""
@@ -45,7 +48,6 @@ class ReconnectScheduler:
         self.reconnect_interval = self.cfg.reconnect_scheduler.reconnect_interval
         self.backoff_step = self.cfg.reconnect_scheduler.backoff_step
         self.backoff_cap = self.cfg.reconnect_scheduler.backoff_cap
-        self.jitter = self.cfg.reconnect_scheduler.jitter
         self.jitter = self.cfg.reconnect_scheduler.jitter
         self.slow_threshold = self.cfg.reconnect_scheduler.slow_threshold
         self.executor = concurrent.futures.ThreadPoolExecutor(
@@ -57,18 +59,29 @@ class ReconnectScheduler:
         self._shutdown = False
 
                                                                                            ##### Registration / Removal
-    def register(self, fn, tag = None, backoff = True, run_immediately = True):
+    def register(self, fn, tag = None, backoff = True, run_immediately = True,
+                 interval = None, backoff_cap = None):
         if self._shutdown:
             return
         if tag is None:
             owner = getattr(fn, '__self__', None)
             tag = owner.__class__.__name__.lower() if owner else fn.__name__
+
+        actual_interval = interval if interval is not None else self.reconnect_interval
+        actual_backoff_cap = backoff_cap if backoff_cap is not None else self.backoff_cap
+        if actual_backoff_cap < actual_interval:
+            actual_backoff_cap = actual_interval
+
         now = time.monotonic()
-        first = now if run_immediately else now + self.reconnect_interval
+        first = now if run_immediately else now + actual_interval
         rec = self.tasks.get(fn)
         if rec:
             rec.tag = tag
             rec.backoff = backoff
+            rec.base_interval = actual_interval
+            rec.backoff_cap = actual_backoff_cap
+            if rec.interval < actual_interval:
+                rec.interval = actual_interval
             if run_immediately:
                 rec.next_run = now
             return
@@ -76,12 +89,39 @@ class ReconnectScheduler:
             fn=fn,
             tag=tag,
             next_run=first,
-            interval=self.reconnect_interval,
+            interval=actual_interval,
+            base_interval=actual_interval,
             backoff=backoff,
             generation=self.generation,
+            backoff_cap=actual_backoff_cap,
         )
         self.logger.log(
-            f"Scheduler: registered task tag:{tag} interval:{self.reconnect_interval} generation:{self.generation}", "DEBUG")
+            f"Scheduler: registered task tag:{tag} interval:{actual_interval} generation:{self.generation}", "DEBUG")
+
+
+    def trigger_tag(self, tag, delay=0.0):
+        """Schedule matching task(s) to run soon without changing their interval."""
+        if self._shutdown:
+            return 0
+
+        now = time.monotonic()
+        target = now + max(0.0, delay)
+        count = 0
+
+        for rec in self.tasks.values():
+            if rec.tag == tag or rec.tag.startswith(tag):
+                if rec.next_run > target:
+                    rec.next_run = target
+                count += 1
+
+        if count:
+            self.logger.log(
+                "Scheduler: triggered %d task(s) for tag '%s' in %.2fs"
+                % (count, tag, max(0.0, delay)),
+                "DEBUG",
+            )
+
+        return count
 
     def unregister_tag(self, tag):
         self.generation += 1
@@ -143,15 +183,17 @@ class ReconnectScheduler:
             if rec.backoff:
                 if success:
                     rec.failures = 0
-                    rec.interval = self.reconnect_interval
+                    rec.interval = rec.base_interval
                 else:
                     rec.failures += 1
+                    cap = rec.backoff_cap if rec.backoff_cap is not None else self.backoff_cap
                     rec.interval = min(
-                        self.reconnect_interval + (self.backoff_step * rec.failures),
-                        self.backoff_cap
+                        rec.base_interval + (self.backoff_step * rec.failures),
+                        cap
                     )
                 rec.interval *= random.uniform(1 - self.jitter, 1 + self.jitter)
-                rec.interval = min(rec.interval, self.backoff_cap)
+                cap = rec.backoff_cap if rec.backoff_cap is not None else self.backoff_cap
+                rec.interval = min(rec.interval, cap)
             target = now + rec.interval
             if rec.next_run < target:
                 rec.next_run = target

@@ -4,6 +4,7 @@ import select
 from pansyncer.config import Config
 from pansyncer.device_handler import DeviceHandler
 from pansyncer.device_register import DeviceRegister
+from pansyncer.evdev_hotplug import EvdevHotplugEvent, IN_CREATE
 
 
 class FakeLogger:
@@ -286,3 +287,130 @@ def test_poll_inputs_does_not_refresh_replaced_knob_controller(monkeypatch):
     assert new_refreshes == []
     assert isinstance(handler._knob, NewKnob)
     assert handler.devices.enabled("knob") is True
+
+
+def test_poll_inputs_handles_evdev_hotplug_before_stale_input_dispatch(monkeypatch):
+    handler = make_handler_without_devices()
+    handler.devices._devices.update({"knob", "mouse"})
+
+    events = []
+    mouse_refreshes = []
+
+    class FakeHotplug:
+        def active(self):
+            return True
+
+        def fd(self):
+            return 99
+
+        def drain(self):
+            events.append("drain")
+            return [EvdevHotplugEvent("event20", IN_CREATE, "add")]
+
+    class FakeKnob:
+        def fd(self):
+            return 10
+
+        def ensure_connected(self):
+            events.append("knob.ensure")
+            return True
+
+        def handle_events(self, sync, step):
+            raise AssertionError("stale knob fd should not be dispatched after hotplug")
+
+    class FakeMouse:
+        def get_fds(self):
+            return [11]
+
+        def refresh(self):
+            mouse_refreshes.append("mouse")
+            return True
+
+        def handle_event(self, fd, sync, step, now):
+            raise AssertionError("stale mouse fd should not be dispatched after hotplug")
+
+    handler._input_hotplug = FakeHotplug()
+    handler._knob = FakeKnob()
+    handler._mouse = FakeMouse()
+
+    monkeypatch.setattr(select, "select", lambda *args, **kwargs: ([99, 10, 11], [], []))
+
+    assert handler._poll_inputs(now=10.0) is False
+
+    assert events == ["drain", "knob.ensure"]
+    assert mouse_refreshes == ["mouse"]
+
+
+def test_ensure_input_hotplug_monitor_starts_monitor(monkeypatch):
+    handler = make_handler_without_devices()
+
+    created = []
+
+    class FakeMonitor:
+        def __init__(self, logger, cfg):
+            created.append((logger, cfg))
+
+        def active(self):
+            return False
+
+    monkeypatch.setattr("pansyncer.device_handler.EvdevHotplugMonitor", FakeMonitor)
+
+    handler._ensure_input_hotplug_monitor()
+
+    assert created == [(handler.logger, handler.input_hotplug_cfg)]
+
+
+def test_input_hotplug_triggers_retry_when_knob_probe_misses():
+    handler = make_handler_without_devices()
+    handler.devices._devices.update({"knob"})
+    handler.input_hotplug_cfg.retry_delay = 0.75
+
+    triggered = []
+
+    class FakeScheduler:
+        def trigger_tag(self, tag, delay=0.0):
+            triggered.append((tag, delay))
+            return 1
+
+    class FakeHotplug:
+        def drain(self):
+            return [EvdevHotplugEvent("event30", IN_CREATE, "add")]
+
+    class FakeKnob:
+        def ensure_connected(self):
+            return False
+
+    handler.scheduler = FakeScheduler()
+    handler._input_hotplug = FakeHotplug()
+    handler._knob = FakeKnob()
+
+    handler._handle_input_hotplug()
+
+    assert triggered == [("knob", 0.75)]
+
+def test_input_hotplug_does_not_retry_when_knob_connects(monkeypatch):
+    handler = make_handler_without_devices()
+    handler.devices._devices.update({"knob"})
+
+    triggered = []
+
+    class FakeScheduler:
+        def trigger_tag(self, tag, delay=0.0):
+            triggered.append((tag, delay))
+            return 1
+
+    class FakeHotplug:
+        def drain(self):
+            return [EvdevHotplugEvent("event31", IN_CREATE, "add")]
+
+    class FakeKnob:
+        def ensure_connected(self):
+            return True
+
+    handler.scheduler = FakeScheduler()
+    handler._input_hotplug = FakeHotplug()
+    handler._knob = FakeKnob()
+
+    handler._handle_input_hotplug()
+
+    assert triggered == []

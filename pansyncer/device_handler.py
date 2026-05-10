@@ -16,6 +16,7 @@ from pansyncer.keyboard import KeyboardController
 from pansyncer.mouse import MouseState
 from pansyncer.knob import KnobController
 from pansyncer.reconnect_scheduler import ReconnectScheduler
+from pansyncer.evdev_hotplug import EvdevHotplugMonitor, InputHotplugConfig
 
 
 class DeviceHandler:
@@ -30,11 +31,13 @@ class DeviceHandler:
         self.step = step
         self.display = display
         self.keyboard = keyboard
+        self.input_hotplug_cfg = getattr(self.cfg, 'input_hotplug', InputHotplugConfig())
 
         self.interval = self.cfg.main.interval                                          # Main loop throttle
         self._rigchk = None                                                             # Device controller references
         self._knob = None
         self._mouse = None
+        self._input_hotplug = None
         self._lifecycle_lock = threading.RLock()
                                                                                         # Keyboard (stdin)
         if self.keyboard is None and self.devices.enabled('keyboard'):
@@ -53,6 +56,9 @@ class DeviceHandler:
         self.scheduler = ReconnectScheduler(                                            # Reconnection scheduler
             self.cfg,
             self.logger)
+
+        if self.devices.enabled('knob') or self.devices.enabled('mouse'):
+            self._ensure_input_hotplug_monitor()
 
         if self.devices.enabled('rig'):
             self._on_rig_added('rig')
@@ -78,6 +84,14 @@ class DeviceHandler:
             self.logger.log(f'scheduler shutdown error: {e}', 'ERROR')
 
         with self._lifecycle_lock:
+            if self._input_hotplug:
+                try:
+                    self._input_hotplug.close()
+                except Exception as e:
+                    self.logger.log(f'input hotplug cleanup error: {e}', 'ERROR')
+                finally:
+                    self._input_hotplug = None
+
             if self._rigchk:
                 try:
                     self._rigchk.cleanup()
@@ -113,6 +127,22 @@ class DeviceHandler:
         self.devices.on_add(self._on_gqrx_added)
         self.devices.on_remove(self._on_gqrx_removed)
 
+    def _ensure_input_hotplug_monitor(self):
+        """Start the evdev hotplug monitor if input devices may need it."""
+        with self._lifecycle_lock:
+            if not self.input_hotplug_cfg.enabled:
+                return None
+            if self._input_hotplug is None:
+                self._input_hotplug = EvdevHotplugMonitor(self.logger, self.input_hotplug_cfg)
+            return self._input_hotplug
+
+    def _input_hotplug_fd(self):
+        """Return the evdev hotplug fd, or None if unavailable."""
+        monitor = self._input_hotplug
+        if monitor and monitor.active():
+            return monitor.fd()
+        return None
+
     def _input_controller_snapshot(self):
         """Return the currently active input controllers for one poll cycle."""
         with self._lifecycle_lock:
@@ -122,6 +152,11 @@ class DeviceHandler:
 
     def _poll_inputs(self, now):                                                # FD polling and event dispatch
         fds = []
+
+        hotplug_fd = self._input_hotplug_fd()
+        if hotplug_fd is not None:
+            fds.append(hotplug_fd)
+
         stdin_fd = None
         if not self.cfg.main.daemon and self.is_tty and self.keyboard:
             try:
@@ -165,14 +200,20 @@ class DeviceHandler:
             raise
         except ValueError as e:
             self.logger.log(f'select fd error: {e}', 'ERROR')
-            self._handle_bad_fds(stdin_fd, kfd, mouse_fds, knob=knob, mouse=mouse)
+            self._handle_bad_fds(stdin_fd, kfd, mouse_fds, hotplug_fd=hotplug_fd,
+                                 knob=knob, mouse=mouse)
             return False
         except OSError as e:
             self.logger.log(f'select error: {e}', 'ERROR')
 
             if getattr(e, "errno", None) == errno.EBADF:
-                self._handle_bad_fds(stdin_fd, kfd, mouse_fds, knob=knob, mouse=mouse)
+                self._handle_bad_fds(stdin_fd, kfd, mouse_fds, hotplug_fd=hotplug_fd,
+                                     knob=knob, mouse=mouse)
 
+            return False
+
+        if hotplug_fd is not None and hotplug_fd in rlist:
+            self._handle_input_hotplug()
             return False
 
         for fd in rlist:                                                               # Dispatch events
@@ -192,6 +233,49 @@ class DeviceHandler:
                     self.logger.log(f'mouse handler error: {e}', 'ERROR')
                     self._refresh_mouse_connected('handler error', controller=mouse)
         return False
+
+
+    def _trigger_input_retry(self, tag):
+        """Run the input reconnect task soon after a hotplug event."""
+        try:
+            return self.scheduler.trigger_tag(tag, delay=self.input_hotplug_cfg.retry_delay)
+        except AttributeError:
+            return 0
+
+    def _handle_input_hotplug(self):
+        """React to /dev/input hotplug events by refreshing input devices immediately."""
+        monitor = self._input_hotplug
+        events = monitor.drain() if monitor else []
+
+        if not events:
+            return
+
+        summary = ', '.join(f'{event.action}:{event.name or "-"}' for event in events[:4])
+        if len(events) > 4:
+            summary += ', ...'
+        self.logger.log(f'evdev hotplug: {summary}', 'DEBUG')
+
+        if self.devices.enabled('knob'):
+            with self._lifecycle_lock:
+                knob = self._knob
+            if knob is None:
+                _ = self.knob
+            connected = self._ensure_knob_connected()
+            if not connected:
+                self._trigger_input_retry('knob')
+
+        if self.devices.enabled('mouse'):
+            with self._lifecycle_lock:
+                mouse = self._mouse
+            if mouse is None:
+                _ = self.mouse
+            refreshed = self._refresh_mouse_connected('hotplug', controller=mouse)
+            if not refreshed:
+                self._trigger_input_retry('mouse')
+
+        if self.keyboard:
+            with self._lifecycle_lock:
+                self.keyboard.mouse = self._mouse
 
     def _ensure_knob_connected(self):
         """Reconnect knob only while it is still enabled and registered."""
@@ -250,8 +334,15 @@ class DeviceHandler:
         except OSError as e:
             return getattr(e, "errno", None) != errno.EBADF
 
-    def _handle_bad_fds(self, stdin_fd, kfd, mouse_fds, knob=None, mouse=None):
+    def _handle_bad_fds(self, stdin_fd, kfd, mouse_fds, hotplug_fd=None, knob=None, mouse=None):
         """Handle EBADF by checking each FD."""
+        if hotplug_fd is not None and not self._fd_is_valid(hotplug_fd):
+            self.logger.log('evdev hotplug fd became invalid', 'ERROR')
+            with self._lifecycle_lock:
+                if self._input_hotplug:
+                    self._input_hotplug.close()
+                    self._input_hotplug = None
+
         if stdin_fd is not None and not self._fd_is_valid(stdin_fd):
             self.logger.log('stdin fd became invalid', 'ERROR')
 
@@ -284,7 +375,14 @@ class DeviceHandler:
                 self._knob = KnobController(self.cfg, self.logger, self.display)
                 try:
                     self._knob.ensure_connected()
-                    self.scheduler.register(self._ensure_knob_connected, tag='knob', backoff=True)
+                    self.scheduler.register(
+                        self._ensure_knob_connected,
+                        tag='knob',
+                        backoff=True,
+                        run_immediately=False,
+                        interval=self.input_hotplug_cfg.watchdog_interval,
+                        backoff_cap=self.input_hotplug_cfg.watchdog_backoff_cap,
+                    )
                 except (OSError, IOError, TimeoutError) as e:
                     self._knob = None
                     self.logger.log(f'Knob connect error: {e}', 'ERROR')
@@ -297,7 +395,14 @@ class DeviceHandler:
                 self._mouse = MouseState(time.monotonic(), self.logger, self.display)
                 try:
                     self._mouse.ensure_connected()
-                    self.scheduler.register(self._ensure_mouse_connected, tag='mouse', backoff=True)
+                    self.scheduler.register(
+                        self._ensure_mouse_connected,
+                        tag='mouse',
+                        backoff=True,
+                        run_immediately=False,
+                        interval=self.input_hotplug_cfg.watchdog_interval,
+                        backoff_cap=self.input_hotplug_cfg.watchdog_backoff_cap,
+                    )
                 except (OSError, IOError, TimeoutError) as e:
                     self._mouse = None
                     self.logger.log(f'Mouse connect error: {e}', 'ERROR')
@@ -326,6 +431,7 @@ class DeviceHandler:
                                                                                       ##### Event handlers
     def _on_knob_added(self, dev):
         if dev == 'knob':
+            self._ensure_input_hotplug_monitor()
             _ = self.knob
             self.logger.log('Knob added', 'DEBUG')
 
@@ -347,6 +453,7 @@ class DeviceHandler:
 
     def _on_mouse_added(self, dev):
         if dev == 'mouse':
+            self._ensure_input_hotplug_monitor()
             _ = self.mouse
             if self.keyboard:
                 self.keyboard.mouse = self._mouse

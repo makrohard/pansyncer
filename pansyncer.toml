@@ -73,6 +73,13 @@ jitter                     = 0.10                       # Random jitter fraction
 slow_threshold             = 1.0                        # Threshold for considering a task “slow” (seconds)
 max_workers                = 4                          # Maximum number of reconnect threads
 
+[input_hotplug]
+enabled                    = true                       # Use Linux inotify for /dev/input hotplug events
+path                       = "/dev/input"               # Directory containing evdev event nodes
+watchdog_interval          = 3.0                        # Slow fallback check for knob/mouse reconnects (seconds)
+watchdog_backoff_cap       = 9.0                        # Maximum fallback reconnect interval (seconds)
+retry_delay                = 0.25                       # Short delayed retry after a hotplug event (seconds)
+
 [bands]
 region                     = "r1"                       ##### IARU Region -  choose: r1 | r2 | r3 | r3_jp
 

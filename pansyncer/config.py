@@ -14,6 +14,7 @@ from pansyncer.display import DisplayConfig
 from pansyncer.knob import KnobConfig
 from pansyncer.rigcheck import RigCheckConfig
 from pansyncer.reconnect_scheduler import SchedulerConfig
+from pansyncer.evdev_hotplug import InputHotplugConfig
 from pansyncer.bands import Band, DEFAULT_BANDS, normalize_bands
 
 @dataclass
@@ -35,7 +36,8 @@ class Config:
                  display=None,
                  knob=None,
                  rigcheck=None,
-                 reconnect_scheduler=None):
+                 reconnect_scheduler=None,
+                 input_hotplug=None):
         self.main = main or MainConfig()
         self.sync = sync or SyncConfig()
         self.devices = devices or DeviceRegisterConfig()
@@ -43,6 +45,7 @@ class Config:
         self.knobs = knob or [KnobConfig()]
         self.rigcheck = rigcheck or RigCheckConfig()
         self.reconnect_scheduler = reconnect_scheduler or SchedulerConfig()
+        self.input_hotplug = input_hotplug or InputHotplugConfig()
         self.bands = list(DEFAULT_BANDS)
 
     @staticmethod
@@ -99,7 +102,7 @@ class Config:
             raise SystemExit(2) from e
 
                                                                                         # overlay file data
-        for section_name in ('main', 'sync', 'devices', 'display', 'rigcheck', 'reconnect_scheduler'):
+        for section_name in ('main', 'sync', 'devices','display','rigcheck', 'reconnect_scheduler','input_hotplug',):
             section_data = data.get(section_name, {})
             if isinstance(section_data, dict):
                 section_obj = getattr(cfg, section_name)

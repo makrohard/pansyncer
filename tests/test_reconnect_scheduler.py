@@ -211,6 +211,78 @@ def test_non_backoff_task_keeps_base_interval_after_failure():
         scheduler.shutdown(wait=True)
 
 
+def test_custom_interval_is_used_as_success_reset_baseline():
+    scheduler, _ = make_scheduler(
+        reconnect_interval=0.01,
+        backoff_step=1.0,
+        backoff_cap=4.0,
+    )
+    calls = []
+
+    def task():
+        calls.append("run")
+        return True
+
+    try:
+        scheduler.register(
+            task,
+            tag="knob",
+            interval=15.0,
+            backoff_cap=60.0,
+            run_immediately=True,
+        )
+
+        drive_until(
+            scheduler,
+            lambda: len(calls) == 1 and scheduler.tasks[task].future is None,
+        )
+
+        rec = scheduler.tasks[task]
+        assert rec.tag == "knob"
+        assert rec.base_interval == 15.0
+        assert rec.interval == 15.0
+        assert rec.backoff_cap == 60.0
+        assert rec.failures == 0
+    finally:
+        scheduler.shutdown(wait=True)
+
+
+def test_custom_interval_failure_uses_custom_backoff_cap():
+    scheduler, _ = make_scheduler(
+        reconnect_interval=0.01,
+        backoff_step=1.0,
+        backoff_cap=4.0,
+    )
+    calls = []
+
+    def task():
+        calls.append("run")
+        return False
+
+    try:
+        scheduler.register(
+            task,
+            tag="mouse",
+            interval=15.0,
+            backoff_cap=16.0,
+            run_immediately=True,
+        )
+
+        drive_until(
+            scheduler,
+            lambda: len(calls) == 1 and scheduler.tasks[task].future is None,
+        )
+
+        rec = scheduler.tasks[task]
+        assert rec.tag == "mouse"
+        assert rec.failures == 1
+        assert rec.base_interval == 15.0
+        assert rec.interval == 16.0
+        assert rec.backoff_cap == 16.0
+    finally:
+        scheduler.shutdown(wait=True)
+
+
 def test_unregister_tag_removes_exact_and_prefixed_tags():
     scheduler, _ = make_scheduler()
 
@@ -283,6 +355,43 @@ def test_shutdown_prevents_later_registration():
 
     assert calls == []
     assert task not in scheduler.tasks
+
+
+def test_trigger_tag_schedules_matching_task_soon_without_changing_interval():
+    scheduler, _ = make_scheduler(reconnect_interval=10.0)
+
+    def task():
+        return True
+
+    try:
+        scheduler.register(task, tag="knob", run_immediately=False)
+        rec = scheduler.tasks[task]
+        old_interval = rec.interval
+
+        assert scheduler.trigger_tag("knob", delay=0.25) == 1
+
+        assert rec.interval == old_interval
+        assert 0.0 <= rec.next_run - time.monotonic() <= 0.5
+    finally:
+        scheduler.shutdown(wait=True)
+
+
+def test_trigger_tag_ignores_unmatched_tasks():
+    scheduler, _ = make_scheduler(reconnect_interval=10.0)
+
+    def task():
+        return True
+
+    try:
+        scheduler.register(task, tag="rig", run_immediately=False)
+        rec = scheduler.tasks[task]
+        old_next_run = rec.next_run
+
+        assert scheduler.trigger_tag("knob", delay=0.25) == 0
+
+        assert rec.next_run == old_next_run
+    finally:
+        scheduler.shutdown(wait=True)
 
 class ImmediateDoneFuture:
     def __init__(self, result_value=True):
