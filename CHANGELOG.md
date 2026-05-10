@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.6.4
+- Added evdev hotplug handling for knob/mouse using inotify
+
 ## 0.6.3
 - Fixed a hotplug crash when disconnected input devices returned negative file descriptors.
 
