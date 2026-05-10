@@ -10,7 +10,7 @@ export REPO_DIR="$PWD"
 mkdir -p "$RUN_DIR"
 
 if [ ! -d ".venv" ]; then
-  python -m venv .venv
+  python3 -m venv .venv
 fi
 
 source .venv/bin/activate
@@ -23,6 +23,7 @@ cat > "$RUN_DIR/common.sh" <<EOF
 #!/usr/bin/env bash
 
 REPO_DIR=$(printf '%q' "$REPO_DIR")
+RLWRAP=\$(command -v rlwrap || true)
 
 cd_repo() {
   cd "\$REPO_DIR"
@@ -40,6 +41,14 @@ wait_port() {
 
   echo "timeout waiting for port \$port" >&2
   return 1
+}
+
+nc_interactive() {
+  if [ -n "\$RLWRAP" ]; then
+    "\$RLWRAP" nc "\$@"
+  else
+    nc "\$@"
+  fi
 }
 EOF
 
@@ -79,19 +88,21 @@ cd_repo
 
 wait_port 4534
 
-echo "tmux window control"
+echo "tmux pane control"
 echo "  Ctrl-b + Arrow          switch pane"
 echo "  Ctrl-b + [              scroll mode - q to exit scroll mode"
 echo "  Ctrl-b + :kill-session  Close all panes and exit"
 echo ""
-echo "RADIO EMULATOR CONTROL"
+echo "Pansyncer Control (upper left pane): Press ? for help"
+echo ""
+echo "RADIO EMULATOR CONTROL (this pane)"
 echo "Example commands:"
 echo "  status"
 echo "  rig nudge -100"
 echo "  gqrx spin start"
 echo ""
 
-rlwrap nc 127.0.0.1 4534
+nc_interactive 127.0.0.1 4534
 exec bash
 EOF
 
@@ -106,7 +117,7 @@ wait_port 4534
 
 echo "WATCH RIG"
 
-rlwrap nc 127.0.0.1 4534
+nc_interactive 127.0.0.1 4534
 exec bash
 EOF
 
@@ -121,7 +132,7 @@ wait_port 4534
 
 echo "WATCH GQRX"
 
-rlwrap nc 127.0.0.1 4534
+nc_interactive 127.0.0.1 4534
 exec bash
 EOF
 
@@ -147,4 +158,9 @@ tmux send-keys -t "$PANE_WATCH_GQRX" "watch gqrx" C-m
 
 tmux select-window -t "$SESSION:demo"
 tmux select-pane -t "$PANE_PANSYNCER"
-tmux attach -t "$SESSION"
+
+if [ -n "${TMUX:-}" ]; then
+  tmux switch-client -t "$SESSION"
+else
+  tmux attach -t "$SESSION"
+fi
