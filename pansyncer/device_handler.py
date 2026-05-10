@@ -113,6 +113,13 @@ class DeviceHandler:
         self.devices.on_add(self._on_gqrx_added)
         self.devices.on_remove(self._on_gqrx_removed)
 
+    def _input_controller_snapshot(self):
+        """Return the currently active input controllers for one poll cycle."""
+        with self._lifecycle_lock:
+            knob = self._knob if self.devices.enabled('knob') else None
+            mouse = self._mouse if self.devices.enabled('mouse') else None
+        return knob, mouse
+
     def _poll_inputs(self, now):                                                # FD polling and event dispatch
         fds = []
         stdin_fd = None
@@ -124,25 +131,27 @@ class DeviceHandler:
                 self.logger.log(f'stdin fd error: {e}', 'ERROR')
                 stdin_fd = None
 
+        knob, mouse = self._input_controller_snapshot()
+
         kfd = None                                                                      # Knob FD
-        if self._knob and self.devices.enabled('knob'):
+        if knob:
             try:
-                kfd = self._knob.fd()
+                kfd = knob.fd()
                 if kfd is not None:
                     fds.append(kfd)
-            except (AttributeError, OSError) as e:
+            except (AttributeError, OSError, ValueError) as e:
                 self.logger.log(f'knob fd error: {e}', 'ERROR')
-                self._refresh_knob_connected('fd error')
+                self._refresh_knob_connected('fd error', controller=knob)
                 kfd = None
 
         mouse_fds = []                                                                  # Mouse FDs
-        if self._mouse and self.devices.enabled('mouse'):
+        if mouse:
             try:
-                mouse_fds = self._mouse.get_fds()
+                mouse_fds = mouse.get_fds()
                 fds.extend(mouse_fds)
-            except (AttributeError, OSError) as e:
+            except (AttributeError, OSError, ValueError) as e:
                 self.logger.log(f'mouse fds error: {e}', 'ERROR')
-                self._refresh_mouse_connected('fd error')
+                self._refresh_mouse_connected('fd error', controller=mouse)
                 mouse_fds = []
 
         fds = list(dict.fromkeys(fds))                                                  # De-duplicate FDs
@@ -156,13 +165,13 @@ class DeviceHandler:
             raise
         except ValueError as e:
             self.logger.log(f'select fd error: {e}', 'ERROR')
-            self._handle_bad_fds(stdin_fd, kfd, mouse_fds)
+            self._handle_bad_fds(stdin_fd, kfd, mouse_fds, knob=knob, mouse=mouse)
             return False
         except OSError as e:
             self.logger.log(f'select error: {e}', 'ERROR')
 
             if getattr(e, "errno", None) == errno.EBADF:
-                self._handle_bad_fds(stdin_fd, kfd, mouse_fds)
+                self._handle_bad_fds(stdin_fd, kfd, mouse_fds, knob=knob, mouse=mouse)
 
             return False
 
@@ -170,16 +179,18 @@ class DeviceHandler:
             if stdin_fd is not None and fd == stdin_fd and self.keyboard:
                 if self.keyboard.read_stdin(fd, now):
                     return True
-            elif kfd is not None and fd == kfd and self._knob:
+            elif kfd is not None and fd == kfd and knob:
                 try:
-                    self._knob.handle_events(self.sync, self.step)
+                    knob.handle_events(self.sync, self.step)
                 except (OSError, ValueError) as e:
                     self.logger.log(f'knob handler error: {e}', 'ERROR')
-            elif self._mouse and fd in mouse_fds and (self.keyboard.focused if self.keyboard else True):
+                    self._refresh_knob_connected('handler error', controller=knob)
+            elif mouse and fd in mouse_fds and (self.keyboard.focused if self.keyboard else True):
                 try:
-                    self._mouse.handle_event(fd, self.sync, self.step, now)
-                except OSError as e:
+                    mouse.handle_event(fd, self.sync, self.step, now)
+                except (OSError, ValueError) as e:
                     self.logger.log(f'mouse handler error: {e}', 'ERROR')
+                    self._refresh_mouse_connected('handler error', controller=mouse)
         return False
 
     def _ensure_knob_connected(self):
@@ -196,10 +207,12 @@ class DeviceHandler:
                 return False
             return self._mouse.ensure_connected()
 
-    def _refresh_mouse_connected(self, reason):
+    def _refresh_mouse_connected(self, reason, controller=None):
         """Refresh mouse hardware state."""
         with self._lifecycle_lock:
             if not self.devices.enabled('mouse') or self._mouse is None:
+                return False
+            if controller is not None and self._mouse is not controller:
                 return False
             try:
                 return self._mouse.refresh()
@@ -207,10 +220,12 @@ class DeviceHandler:
                 self.logger.log(f'mouse refresh after {reason}: {e}', 'ERROR')
                 return False
 
-    def _refresh_knob_connected(self, reason):
+    def _refresh_knob_connected(self, reason, controller=None):
         """Reset knob hardware state."""
         with self._lifecycle_lock:
             if not self.devices.enabled('knob') or self._knob is None:
+                return False
+            if controller is not None and self._knob is not controller:
                 return False
             try:
                 self._knob.disconnect()
@@ -235,7 +250,7 @@ class DeviceHandler:
         except OSError as e:
             return getattr(e, "errno", None) != errno.EBADF
 
-    def _handle_bad_fds(self, stdin_fd, kfd, mouse_fds):
+    def _handle_bad_fds(self, stdin_fd, kfd, mouse_fds, knob=None, mouse=None):
         """Handle EBADF by checking each FD."""
         if stdin_fd is not None and not self._fd_is_valid(stdin_fd):
             self.logger.log('stdin fd became invalid', 'ERROR')
@@ -245,7 +260,7 @@ class DeviceHandler:
             and self.devices.enabled('knob')
             and not self._fd_is_valid(kfd)
         ):
-            self._refresh_knob_connected('bad fd')
+            self._refresh_knob_connected('bad fd', controller=knob)
 
         if mouse_fds and self.devices.enabled('mouse'):
             bad_mouse_fds = [
@@ -253,7 +268,7 @@ class DeviceHandler:
                 if not self._fd_is_valid(fd)
             ]
             if bad_mouse_fds:
-                self._refresh_mouse_connected('bad fd')
+                self._refresh_mouse_connected('bad fd', controller=mouse)
 
     def _check_rig_connected(self):
         """Check rig only while it is still enabled and registered."""
@@ -264,46 +279,49 @@ class DeviceHandler:
 
     @property                                                                         ##### Properties
     def knob(self):
-        if self._knob is None and self.devices.enabled('knob'):
-            self._knob = KnobController(self.cfg, self.logger, self.display)
-            try:
-                self._knob.ensure_connected()
-                self.scheduler.register(self._ensure_knob_connected, tag='knob', backoff=True)
-            except (OSError, IOError, TimeoutError) as e:
-                self._knob = None
-                self.logger.log(f'Knob connect error: {e}', 'ERROR')
-        return self._knob
+        with self._lifecycle_lock:
+            if self._knob is None and self.devices.enabled('knob'):
+                self._knob = KnobController(self.cfg, self.logger, self.display)
+                try:
+                    self._knob.ensure_connected()
+                    self.scheduler.register(self._ensure_knob_connected, tag='knob', backoff=True)
+                except (OSError, IOError, TimeoutError) as e:
+                    self._knob = None
+                    self.logger.log(f'Knob connect error: {e}', 'ERROR')
+            return self._knob
 
     @property
     def mouse(self):
-        if self._mouse is None and self.devices.enabled('mouse'):
-            self._mouse = MouseState(time.monotonic(), self.logger, self.display)
-            try:
-                self._mouse.ensure_connected()
-                self.scheduler.register(self._ensure_mouse_connected, tag='mouse', backoff=True)
-            except (OSError, IOError, TimeoutError) as e:
-                self._mouse = None
-                self.logger.log(f'Mouse connect error: {e}', 'ERROR')
-        return self._mouse
+        with self._lifecycle_lock:
+            if self._mouse is None and self.devices.enabled('mouse'):
+                self._mouse = MouseState(time.monotonic(), self.logger, self.display)
+                try:
+                    self._mouse.ensure_connected()
+                    self.scheduler.register(self._ensure_mouse_connected, tag='mouse', backoff=True)
+                except (OSError, IOError, TimeoutError) as e:
+                    self._mouse = None
+                    self.logger.log(f'Mouse connect error: {e}', 'ERROR')
+            return self._mouse
 
     @property
     def rigchk(self):
-        if self._rigchk is None and self.devices.enabled('rig'):
-            self._rigchk = RigChecker(
-                self.cfg,
-                port=self.cfg.sync.rig_port,
-                display=self.display,
-                auto_start=not self.cfg.main.no_auto_rig
-            )
-            if self.display:
-                self.display.rigchk = self._rigchk
-            try:
-                self._rigchk.check_rig()
-                self.scheduler.register(self._check_rig_connected, tag='rig', backoff=True)
-            except (OSError, IOError, TimeoutError) as e:
-                self._rigchk = None
-                self.logger.log(f'Rigcheck connect error: {e}', 'ERROR')
-        return self._rigchk
+        with self._lifecycle_lock:
+            if self._rigchk is None and self.devices.enabled('rig'):
+                self._rigchk = RigChecker(
+                    self.cfg,
+                    port=self.cfg.sync.rig_port,
+                    display=self.display,
+                    auto_start=not self.cfg.main.no_auto_rig
+                )
+                if self.display:
+                    self.display.rigchk = self._rigchk
+                try:
+                    self._rigchk.check_rig()
+                    self.scheduler.register(self._check_rig_connected, tag='rig', backoff=True)
+                except (OSError, IOError, TimeoutError) as e:
+                    self._rigchk = None
+                    self.logger.log(f'Rigcheck connect error: {e}', 'ERROR')
+            return self._rigchk
 
                                                                                       ##### Event handlers
     def _on_knob_added(self, dev):
@@ -333,7 +351,7 @@ class DeviceHandler:
             if self.keyboard:
                 self.keyboard.mouse = self._mouse
             self.logger.log('Mouse added', 'DEBUG')
-            
+
     def _on_mouse_removed(self, dev):
         if dev == 'mouse':
             with self._lifecycle_lock:
