@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.3
 - Fixed a hotplug crash when disconnected input devices returned negative file descriptors.
 
 ## 0.6.2
