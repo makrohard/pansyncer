@@ -82,7 +82,7 @@ wait_port 4534
 echo "tmux window control"
 echo "  Ctrl-b + Arrow          switch pane"
 echo "  Ctrl-b + [              scroll mode - q to exit scroll mode"
-echo "  Ctrl-b + :kill-session  Close all panes and exit
+echo "  Ctrl-b + :kill-session  Close all panes and exit"
 echo ""
 echo "RADIO EMULATOR CONTROL"
 echo "Example commands:"
