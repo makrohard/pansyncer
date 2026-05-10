@@ -154,6 +154,10 @@ class DeviceHandler:
             rlist, _, _ = select.select(fds, [], [], self.interval)
         except (KeyboardInterrupt, InterruptedError):                                   # SIGINT
             raise
+        except ValueError as e:
+            self.logger.log(f'select fd error: {e}', 'ERROR')
+            self._handle_bad_fds(stdin_fd, kfd, mouse_fds)
+            return False
         except OSError as e:
             self.logger.log(f'select error: {e}', 'ERROR')
 
@@ -218,7 +222,12 @@ class DeviceHandler:
     @staticmethod
     def _fd_is_valid(fd):
         """Return False if fd is invalid."""
+        if fd is None:
+            return False
+
         try:
+            if fd < 0:
+                return False
             select.select([fd], [], [], 0)
             return True
         except ValueError:

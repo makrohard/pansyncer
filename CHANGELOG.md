@@ -1,5 +1,8 @@
 # Changelog
 
+## Unreleased
+- Fixed a hotplug crash when disconnected input devices returned negative file descriptors.
+
 ## 0.6.2
 - Add GitHub Codespaces PanSyncer environment: tmux-based demo with radio emulator control and CAT watch panes.
 
