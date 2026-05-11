@@ -138,14 +138,10 @@ class KnobController:
 
             return had_action
 
-        except (OSError, IOError, ValueError) as e:
-            self.logger.log(f"Failed reading knob events: {e}", "WARNING")
-            self.disconnect()
-            return False
-
         except (OSError, IOError, ValueError) as e:                                    # On error, fully reset connection
             self.logger.log(f"Failed reading knob events: {e}", "WARNING")
             self.disconnect()
+            return False
 
     def _device_path_still_present(self):
         """Return True if the currently opened evdev path still exists."""
