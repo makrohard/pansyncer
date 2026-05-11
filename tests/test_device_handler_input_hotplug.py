@@ -34,6 +34,21 @@ class FakeKnobController:
     def disconnect(self):
         pass
 
+class FakeMouseState:
+    def __init__(self, now, logger, display=None, fullscan_interval=9.0):
+        self.now = now
+        self.logger = logger
+        self.display = display
+        self.fullscan_interval = fullscan_interval
+        self.ensure_calls = 0
+        self.disconnect_calls = 0
+
+    def ensure_connected(self, *args, **kwargs):
+        self.ensure_calls += 1
+        return True
+
+    def disconnect(self):
+        self.disconnect_calls += 1
 
 def make_handler_without_devices():
     cfg = Config()
@@ -104,3 +119,29 @@ def test_hotplug_monitor_not_started_when_disabled(monkeypatch):
 
     assert handler._ensure_input_hotplug_monitor() is None
     assert handler._input_hotplug is None
+
+def test_mouse_scheduler_can_be_disabled(monkeypatch):
+    handler = make_handler_without_devices()
+    handler.devices._devices.add("mouse")
+    handler.cfg.input_hotplug.mouse_watchdog_enabled = False
+    handler.scheduler = FakeScheduler()
+
+    monkeypatch.setattr("pansyncer.device_handler.MouseState", FakeMouseState)
+
+    _ = handler.mouse
+
+    assert handler._mouse is not None
+    assert handler._mouse.ensure_calls == 0
+    assert handler.scheduler.register_calls == []
+
+def test_mouse_state_uses_input_hotplug_backoff_as_fullscan_interval(monkeypatch):
+    handler = make_handler_without_devices()
+    handler.devices._devices.add("mouse")
+    handler.cfg.input_hotplug.watchdog_backoff_cap = 9.0
+    handler.scheduler = FakeScheduler()
+
+    monkeypatch.setattr("pansyncer.device_handler.MouseState", FakeMouseState)
+
+    _ = handler.mouse
+
+    assert handler._mouse.fullscan_interval == 9.0

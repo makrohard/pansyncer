@@ -42,6 +42,7 @@ class InputHotplugConfig:
     watchdog_interval: float = 3.0
     watchdog_backoff_cap: float = 9.0
     retry_delay: float = 0.25
+    mouse_watchdog_enabled: bool = True
 
 
 @dataclass(frozen=True)

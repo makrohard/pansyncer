@@ -119,6 +119,7 @@ def install_mouse_discovery(monkeypatch, paths, devices_by_path):
 
     monkeypatch.setattr(evdev, "list_devices", lambda: list(paths))
     monkeypatch.setattr(evdev, "InputDevice", factory)
+    monkeypatch.setattr("pansyncer.mouse.os.path.exists", lambda path: path in paths)
 
     return factory
 
@@ -389,11 +390,12 @@ def test_mouse_rescan_adds_new_mouse_even_when_existing_mouse_present(monkeypatc
 
     paths.append(real_mouse.path)
 
-    assert mouse.ensure_connected() is True
+    assert mouse.ensure_connected(now=1.0) is True
+    assert mouse.mice == [dead_mouse]
 
+    assert mouse.ensure_connected(now=9.1) is True
     assert mouse.mice == [dead_mouse, real_mouse]
     assert display.mouse_states[-1] is True
-
 
 def test_mouse_rescan_does_not_open_existing_mouse_twice(monkeypatch):
     mouse_device = FakeInputDevice(
@@ -412,7 +414,7 @@ def test_mouse_rescan_does_not_open_existing_mouse_twice(monkeypatch):
     assert mouse.mice == [mouse_device]
     assert factory.opened == [mouse_device.path]
 
-    assert mouse.ensure_connected() is True
+    assert mouse.ensure_connected(now=9.1) is True
 
     assert mouse.mice == [mouse_device]
     assert factory.opened == [mouse_device.path]
@@ -491,3 +493,34 @@ def test_dead_knob_mouse_does_not_block_later_real_mouse_events(monkeypatch):
 
     assert sync.nudges == [100]
     assert display.mouse_inputs == ["UP "]
+
+def test_mouse_watchdog_keeps_existing_mouse_without_fullscan_before_interval(monkeypatch):
+    dead_mouse = FakeInputDevice(
+        fd=10,
+        events=[],
+        path="/dev/input/event10",
+        name="Dead knob mouse",
+    )
+    real_mouse = FakeInputDevice(
+        fd=11,
+        events=[],
+        path="/dev/input/event11",
+        name="Real mouse",
+    )
+
+    paths = [dead_mouse.path]
+    devices_by_path = {
+        dead_mouse.path: dead_mouse,
+        real_mouse.path: real_mouse,
+    }
+
+    factory = install_mouse_discovery(monkeypatch, paths, devices_by_path)
+
+    mouse = MouseState(now=0.0, logger=FakeLogger(), display=FakeDisplay())
+
+    paths.append(real_mouse.path)
+
+    assert mouse.ensure_connected(now=1.0) is True
+
+    assert mouse.mice == [dead_mouse]
+    assert factory.opened == [dead_mouse.path]

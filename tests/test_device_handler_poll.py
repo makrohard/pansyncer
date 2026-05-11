@@ -55,8 +55,8 @@ def test_poll_inputs_refreshes_only_bad_mouse_fd_on_select_ebadf(monkeypatch):
         def get_fds(self):
             return [11]
 
-        def refresh(self):
-            mouse_refreshes.append("mouse")
+        def refresh(self, reset=False):
+            mouse_refreshes.append(reset)
             return False
 
     handler._knob = FakeKnob()
@@ -75,7 +75,7 @@ def test_poll_inputs_refreshes_only_bad_mouse_fd_on_select_ebadf(monkeypatch):
     assert handler._poll_inputs(now=10.0) is False
 
     assert knob_disconnects == []
-    assert mouse_refreshes == ["mouse"]
+    assert mouse_refreshes == [True]
     assert handler.devices.enabled("knob") is True
     assert handler.devices.enabled("mouse") is True
 
@@ -185,8 +185,8 @@ def test_poll_inputs_refreshes_mouse_on_fd_value_error_without_removing_device(m
         def get_fds(self):
             raise ValueError("closed mouse fd")
 
-        def refresh(self):
-            refreshes.append("mouse")
+        def refresh(self, reset=False):
+            refreshes.append(reset)
             return False
 
     handler._mouse = FakeMouse()
@@ -198,7 +198,7 @@ def test_poll_inputs_refreshes_mouse_on_fd_value_error_without_removing_device(m
 
     assert handler._poll_inputs(now=10.0) is False
 
-    assert refreshes == ["mouse"]
+    assert refreshes == [True]
     assert handler.devices.enabled("mouse") is True
 
 
@@ -242,8 +242,8 @@ def test_poll_inputs_refreshes_mouse_after_handler_error(monkeypatch):
             assert active is True
             raise ValueError("mouse disappeared while reading")
 
-        def refresh(self):
-            refreshes.append("mouse")
+        def refresh(self, reset=False):
+            refreshes.append(reset)
             return False
 
     handler._mouse = FakeMouse()
@@ -252,7 +252,7 @@ def test_poll_inputs_refreshes_mouse_after_handler_error(monkeypatch):
 
     assert handler._poll_inputs(now=10.0) is False
 
-    assert refreshes == ["mouse"]
+    assert refreshes == [True]
     assert handler.devices.enabled("mouse") is True
 
 def test_poll_inputs_drains_mouse_when_keyboard_unfocused(monkeypatch):
@@ -380,8 +380,8 @@ def test_poll_inputs_handles_evdev_hotplug_before_stale_input_dispatch(monkeypat
         def get_fds(self):
             return [11]
 
-        def refresh(self):
-            mouse_refreshes.append("mouse")
+        def refresh(self, reset=False):
+            mouse_refreshes.append(reset)
             return True
 
         def handle_event(self, fd, sync, step, now, active=True):
@@ -396,7 +396,7 @@ def test_poll_inputs_handles_evdev_hotplug_before_stale_input_dispatch(monkeypat
     assert handler._poll_inputs(now=10.0) is False
 
     assert events == ["drain", "knob.ensure"]
-    assert mouse_refreshes == ["mouse"]
+    assert mouse_refreshes == [False]
 
 
 def test_ensure_input_hotplug_monitor_starts_monitor(monkeypatch):

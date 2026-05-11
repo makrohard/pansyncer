@@ -186,7 +186,7 @@ class DeviceHandler:
                 fds.extend(mouse_fds)
             except (AttributeError, OSError, ValueError) as e:
                 self.logger.log(f'mouse fds error: {e}', 'ERROR')
-                self._refresh_mouse_connected('fd error', controller=mouse)
+                self._refresh_mouse_connected('fd error', controller=mouse, reset=True)
                 mouse_fds = []
 
         fds = list(dict.fromkeys(fds))                                                  # De-duplicate FDs
@@ -232,7 +232,7 @@ class DeviceHandler:
                     mouse.handle_event(fd, self.sync, self.step, now, active=mouse_active)
                 except (OSError, ValueError) as e:
                     self.logger.log(f'mouse handler error: {e}', 'ERROR')
-                    self._refresh_mouse_connected('handler error', controller=mouse)
+                    self._refresh_mouse_connected('handler error', controller=mouse, reset=True)
         return False
 
 
@@ -292,7 +292,7 @@ class DeviceHandler:
                 return False
             return self._mouse.ensure_connected()
 
-    def _refresh_mouse_connected(self, reason, controller=None):
+    def _refresh_mouse_connected(self, reason, controller=None, reset=False):
         """Refresh mouse hardware state."""
         with self._lifecycle_lock:
             if not self.devices.enabled('mouse') or self._mouse is None:
@@ -300,7 +300,7 @@ class DeviceHandler:
             if controller is not None and self._mouse is not controller:
                 return False
             try:
-                return self._mouse.refresh()
+                return self._mouse.refresh(reset=reset)
             except (AttributeError, OSError, IOError, ValueError, RuntimeError) as e:
                 self.logger.log(f'mouse refresh after {reason}: {e}', 'ERROR')
                 return False
@@ -360,7 +360,7 @@ class DeviceHandler:
                 if not self._fd_is_valid(fd)
             ]
             if bad_mouse_fds:
-                self._refresh_mouse_connected('bad fd', controller=mouse)
+                self._refresh_mouse_connected('bad fd', controller=mouse, reset=True)
 
     def _check_rig_connected(self):
         """Check rig only while it is still enabled and registered."""
@@ -393,17 +393,23 @@ class DeviceHandler:
     def mouse(self):
         with self._lifecycle_lock:
             if self._mouse is None and self.devices.enabled('mouse'):
-                self._mouse = MouseState(time.monotonic(), self.logger, self.display)
+                now = time.monotonic()
+                self._mouse = MouseState(
+                    now,
+                    self.logger,
+                    self.display,
+                    fullscan_interval=self.input_hotplug_cfg.watchdog_backoff_cap)
                 try:
-                    self._mouse.ensure_connected()
-                    self.scheduler.register(
-                        self._ensure_mouse_connected,
-                        tag='mouse',
-                        backoff=True,
-                        run_immediately=False,
-                        interval=self.input_hotplug_cfg.watchdog_interval,
-                        backoff_cap=self.input_hotplug_cfg.watchdog_backoff_cap,
-                    )
+                    if self.input_hotplug_cfg.mouse_watchdog_enabled:
+                        self.scheduler.register(
+                            self._ensure_mouse_connected,
+                            tag='mouse',
+                            backoff=True,
+                            run_immediately=False,
+                            interval=self.input_hotplug_cfg.watchdog_interval,
+                            backoff_cap=self.input_hotplug_cfg.watchdog_backoff_cap)
+                    else:
+                        self.logger.log('Mouse watchdog disabled by config', 'DEBUG')
                 except (OSError, IOError, TimeoutError) as e:
                     self._mouse = None
                     self.logger.log(f'Mouse connect error: {e}', 'ERROR')

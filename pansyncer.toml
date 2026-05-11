@@ -79,6 +79,8 @@ path                       = "/dev/input"               # Directory containing e
 watchdog_interval          = 3.0                        # Slow fallback check for knob/mouse reconnects (seconds)
 watchdog_backoff_cap       = 9.0                        # Maximum fallback reconnect interval (seconds)
 retry_delay                = 0.25                       # Short delayed retry after a hotplug event (seconds)
+mouse_watchdog_enabled     = true                       # Periodically scans devices. Needs some ressources.
+                                                        # If false and hotplug fails, toggle mouse or knob to rescan.
 
 [bands]
 region                     = "r1"                       ##### IARU Region -  choose: r1 | r2 | r3 | r3_jp
