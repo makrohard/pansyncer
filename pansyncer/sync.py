@@ -208,12 +208,14 @@ class SyncManager:
                     if rdo['freq_cur'] is not None:
                         max_delta = abs(int(self.step.get_step())) * self.cfg.sync.nudge_buffer
                         if max_delta > 0 and abs(new_freq - rdo['freq_cur']) > max_delta:
-                            self.logger.log(f"{role.upper()} NUDGE BUFFER FULL", "DEBUG")
+                            if self.logger.is_enabled("DEBUG"):
+                                self.logger.log(f"{role.upper()} NUDGE BUFFER FULL", "DEBUG")
                             return
 
                     is_lo = self.ifreq is not None and role == 'gqrx'
                     if self._queue_set(role, new_freq, is_lo=is_lo):
-                        self.logger.log(f"{role.upper()} NUDGE QUEUED {new_freq}", "DEBUG")
+                        if self.logger.is_enabled("DEBUG"):
+                            self.logger.log(f"{role.upper()} NUDGE QUEUED {new_freq}", "DEBUG")
                     break
         except (KeyError, AttributeError, TypeError, ValueError) as e:
             self.logger.log(f"[NUDGE ERROR]: {e}", "CRITICAL")
@@ -518,7 +520,8 @@ class SyncManager:
         rdo['freq_queued'] = freq_hz
         rdo['freq_queued_is_lo'] = is_lo
         rdo['query'] = None                                                           # Set overwrites query
-        self.logger.log(f"{role.upper()} SET QUEUED {freq_hz}", "DEBUG")
+        if self.logger.is_enabled("DEBUG"):
+            self.logger.log(f"{role.upper()} SET QUEUED {freq_hz}", "DEBUG")
         self._update_poll_mask(role)
         return True
 
@@ -551,7 +554,8 @@ class SyncManager:
                     return
                 if not self._queue_set('gqrx', target_freq, mark_processed=True):
                     return
-                self.logger.log(f"RIG CHANGE DIRECT SYNC {target_freq}", "DEBUG")
+                if self.logger.is_enabled("DEBUG"):
+                    self.logger.log(f"RIG CHANGE DIRECT SYNC {target_freq}", "DEBUG")
 
             elif gqrx_changed:
                 target_freq = self._effective_freq('gqrx')
@@ -562,7 +566,8 @@ class SyncManager:
                     return
                 if not self._queue_set('rig', target_freq, mark_processed=True):
                     return
-                self.logger.log(f"GQRX CHANGE DIRECT SYNC {target_freq}", "DEBUG")
+                if self.logger.is_enabled("DEBUG"):
+                    self.logger.log(f"GQRX CHANGE DIRECT SYNC {target_freq}", "DEBUG")
             return
 
         else:                                                                           # iFreq mode
@@ -576,7 +581,8 @@ class SyncManager:
                     return
                 if not self._queue_set('gqrx', lo_freq, is_lo=True, mark_processed=True):
                     return
-                self.logger.log(f"RIG CHANGE IFREQ SYNC {rig_freq}", "DEBUG")
+                if self.logger.is_enabled("DEBUG"):
+                    self.logger.log(f"RIG CHANGE IFREQ SYNC {rig_freq}", "DEBUG")
 
     # # # # # # # # # # # # # # # # # # # # #
     # # #   I/O, Frequency get / set    # # #
@@ -600,7 +606,8 @@ class SyncManager:
             return
 
         if rdo['query'] is None:                                                         # FreqQueryCmd, not overwriting
-            self.logger.log(f"{role.upper()} FREQ QUERY CMD", "DEBUG")
+            if self.logger.is_enabled("DEBUG"):
+                self.logger.log(f"{role.upper()} FREQ QUERY CMD", "DEBUG")
             rdo['query'] = b"f\n"
             self._update_poll_mask(role)
 
@@ -611,7 +618,8 @@ class SyncManager:
             return
         if now - rdo['is_busy'] <= rdo['timeout']:
             return
-        self.logger.log(f"[TIMEOUT ERROR] {role.upper()} did not ack in {rdo['timeout']}s", "DEBUG")
+        if self.logger.is_enabled("DEBUG"):
+            self.logger.log(f"[TIMEOUT ERROR] {role.upper()} did not ack in {rdo['timeout']}s", "DEBUG")
 
         if rdo['freq_sent'] is not None:
             if rdo['freq_processed'] == rdo['freq_sent']:
@@ -647,7 +655,8 @@ class SyncManager:
             self._update_poll_mask(role)
             return
         except OSError as e:
-            self.logger.log(f"{role.upper()} SEND ERROR {e}", "DEBUG")
+            if self.logger.is_enabled("DEBUG"):
+                self.logger.log(f"{role.upper()} SEND ERROR {e}", "DEBUG")
             self._cleanup_socket(role)
             return
 
@@ -656,8 +665,10 @@ class SyncManager:
             rdo['freq_queued'] = None
             rdo['freq_queued_is_lo'] = False
 
-        self.logger.log(f"{role.upper()} SEND {query}", "DEBUG")
+        if self.logger.is_enabled("DEBUG"):
+            self.logger.log(f"{role.upper()} SEND {query}", "DEBUG")
         rdo['is_busy'] = now                                                            # Set busy flag
+
         rdo['send_timestamp'] = now
         rdo['query'] = None
         self._update_poll_mask(role)
@@ -669,17 +680,20 @@ class SyncManager:
         try:                                                                            # Read socket
             data = rdo['sock'].recv(self.cfg.sync.read_buffer_size)
         except OSError as e:
-            self.logger.log(f"{role.upper()} RECV ERROR] {e}", "DEBUG")
+            if self.logger.is_enabled("DEBUG"):
+                self.logger.log(f"{role.upper()} RECV ERROR] {e}", "DEBUG")
             self._cleanup_socket(role)
             return
 
         if not data:
-            self.logger.log(f"[DEBUG] {role.upper()} SOCKET DIED", "DEBUG")
+            if self.logger.is_enabled("DEBUG"):
+                self.logger.log(f"[DEBUG] {role.upper()} SOCKET DIED", "DEBUG")
             self._cleanup_socket(role)
             return
 
         if rdo['is_busy'] is None:                                                      # Got response, but not busy
-            self.logger.log(f"{role.upper()} ERROR Response while not busy: {data}", "DEBUG")
+            if self.logger.is_enabled("DEBUG"):
+                self.logger.log(f"{role.upper()} ERROR Response while not busy: {data}", "DEBUG")
             rdo['recv_buf'] = bytearray()                                               # Drop stale response data
             return
 
@@ -702,19 +716,22 @@ class SyncManager:
 
             is_error = False
             freq = None
-            self.logger.log(f"{role.upper()} RECEIVED {part.decode(errors='replace')}", "DEBUG")
+            if self.logger.is_enabled("DEBUG"):
+                self.logger.log(f"{role.upper()} RECEIVED {part.decode(errors='replace')}", "DEBUG")
 
             if part.startswith(b"RPRT"):                                                # WRITE REPORT
                 try:
                     _, code = part.split(b" ", 1)
                 except ValueError:
-                    self.logger.log(
-                    f"ERROR {role.upper()} MALFORMED RPRT RESPONSE: {part.decode(errors='replace')}", "DEBUG")
+                    if self.logger.is_enabled("DEBUG"):
+                        self.logger.log(
+                            f"ERROR {role.upper()} MALFORMED RPRT RESPONSE: {part.decode(errors='replace')}", "DEBUG")
                     is_error = True
                     code = None
 
                 if code and code == b"0":                                                ##### Success Report
-                    self.logger.log(f"{role.upper()} RPRT SUCCESS", "DEBUG")
+                    if self.logger.is_enabled("DEBUG"):
+                        self.logger.log(f"{role.upper()} RPRT SUCCESS", "DEBUG")
                     if rdo['freq_sent'] is not None:
                         new_freq = rdo['freq_sent']
                         if new_freq != rdo['freq_cur']:
@@ -728,7 +745,8 @@ class SyncManager:
                 else:                                                                   # Error Report
                     is_error = True
                     code_text = code.decode() if code is not None else "UNKNOWN"
-                    self.logger.log(f"{role.upper()} ERROR RPRT {code_text}", "DEBUG")
+                    if self.logger.is_enabled("DEBUG"):
+                        self.logger.log(f"{role.upper()} ERROR RPRT {code_text}", "DEBUG")
 
             else:
                 try:                                                                    ##### READ FREQUENCY
@@ -736,7 +754,8 @@ class SyncManager:
                 except ValueError:
                     is_error = True
                     freq = None
-                    self.logger.log(f"{role.upper()} ERROR RESPONSE UNKNOWN: {part.decode(errors='replace')}", "DEBUG")
+                    if self.logger.is_enabled("DEBUG"):
+                        self.logger.log(f"{role.upper()} ERROR RESPONSE UNKNOWN: {part.decode(errors='replace')}", "DEBUG")
 
             if freq is not None:
                 if freq != rdo['freq_cur']:                                             # New frequency present
@@ -746,7 +765,8 @@ class SyncManager:
                     rdo['freq_cur'] = freq
 
             if is_error:                                                                # Clear sent state on error
-                self.logger.log(f"{role.upper()} ERROR IN RECEIVED DATA", "DEBUG")
+                if self.logger.is_enabled("DEBUG"):
+                    self.logger.log(f"{role.upper()} ERROR IN RECEIVED DATA", "DEBUG")
                 if rdo['freq_sent'] is not None:
                     if rdo['freq_processed'] == rdo['freq_sent']:
                         rdo['freq_processed'] = rdo['freq_cur']
@@ -771,15 +791,18 @@ class SyncManager:
         try:
             err = sock.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
         except OSError as e:
-            self.logger.log(f"{role.upper()} CONNECT CHECK ERROR {e}", "DEBUG")
+            if self.logger.is_enabled("DEBUG"):
+                self.logger.log(f"{role.upper()} CONNECT CHECK ERROR {e}", "DEBUG")
             self._cleanup_socket(role)
             return False
         if err:
-            self.logger.log(f"{role.upper()} CONNECT ERROR {err}", "DEBUG")
+            if self.logger.is_enabled("DEBUG"):
+                self.logger.log(f"{role.upper()} CONNECT ERROR {err}", "DEBUG")
             self._cleanup_socket(role)
             return False
         rdo['connected'] = True
-        self.logger.log(f"{role.upper()} CONNECTED", "DEBUG")
+        if self.logger.is_enabled("DEBUG"):
+            self.logger.log(f"{role.upper()} CONNECTED", "DEBUG")
         self._update_poll_mask(role)
         return True
 

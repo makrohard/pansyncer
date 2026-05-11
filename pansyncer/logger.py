@@ -56,6 +56,12 @@ class Logger:
             except OSError as e:
                 if self.display: self.display.log(f"[LOGGER ERROR] Failed to write log file: {e}")
 
+    def is_enabled(self, level='INFO'):
+        """Return True if a level would currently be logged."""
+        return self.logger.isEnabledFor(
+            getattr(logging, str(level).upper(), logging.INFO)
+        )
+
     def log(self, msg, level='INFO'):
         """Log a message at a given level."""
         self.logger.log(getattr(logging, level.upper(), logging.INFO), msg)
