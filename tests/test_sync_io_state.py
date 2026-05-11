@@ -1,3 +1,4 @@
+import select
 from pansyncer.config import Config
 from pansyncer.device_register import DeviceRegister
 from pansyncer.step import StepController
@@ -24,6 +25,21 @@ class DummySocket:
     def fileno(self):
         return 999999
 
+class FakePoller:
+    def __init__(self):
+        self.registered = []
+        self.modified = []
+        self.unregistered = []
+
+    def register(self, fd, mask):
+        self.registered.append((fd, mask))
+
+    def modify(self, fd, mask):
+        self.modified.append((fd, mask))
+
+    def unregister(self, fd):
+        self.unregistered.append(fd)
+
 
 def make_sync(enabled=("rig", "gqrx"), ifreq=None):
     cfg = Config()
@@ -34,6 +50,12 @@ def make_sync(enabled=("rig", "gqrx"), ifreq=None):
     devices = DeviceRegister(cfg)
     step = StepController()
     return SyncManager(cfg, devices, step, display=None)
+
+
+def attach_fake_poller(sync):
+    poller = FakePoller()
+    sync._poller = poller
+    return poller
 
 
 def connect_radio(sync, role, freq_cur, sock=None, freq_processed=None):
@@ -54,6 +76,107 @@ def connect_radio(sync, role, freq_cur, sock=None, freq_processed=None):
         }
     )
     return sock
+
+def test_register_socket_watches_pollout_until_connect_finishes():
+    sync = make_sync()
+    poller = attach_fake_poller(sync)
+    sock = DummySocket()
+
+    sync.radio["rig"]["sock"] = sock
+    sync.radio["rig"]["connected"] = False
+
+    sync._register_socket("rig", sock)
+
+    expected_mask = select.POLLIN | select.POLLOUT
+
+    assert poller.registered == [(sock.fileno(), expected_mask)]
+    assert sync._fd_map[sock.fileno()] == "rig"
+    assert sync.radio["rig"]["poll_mask"] == expected_mask
+
+
+def test_update_poll_mask_disables_pollout_when_connected_idle():
+    sync = make_sync()
+    poller = attach_fake_poller(sync)
+    sock = connect_radio(sync, "rig", 14_125_000)
+
+    sync._fd_map[sock.fileno()] = "rig"
+    sync.radio["rig"]["poll_mask"] = select.POLLIN | select.POLLOUT
+
+    sync._update_poll_mask("rig")
+
+    assert poller.modified == [(sock.fileno(), select.POLLIN)]
+    assert sync.radio["rig"]["poll_mask"] == select.POLLIN
+
+
+def test_queue_set_enables_pollout_for_pending_frequency_set():
+    sync = make_sync()
+    poller = attach_fake_poller(sync)
+    sock = connect_radio(sync, "rig", 14_125_000)
+
+    sync._fd_map[sock.fileno()] = "rig"
+    sync.radio["rig"]["poll_mask"] = select.POLLIN
+
+    assert sync._queue_set("rig", 14_200_000) is True
+
+    expected_mask = select.POLLIN | select.POLLOUT
+
+    assert poller.modified == [(sock.fileno(), expected_mask)]
+    assert sync.radio["rig"]["poll_mask"] == expected_mask
+
+
+def test_send_query_disables_pollout_while_socket_is_busy():
+    sync = make_sync()
+    poller = attach_fake_poller(sync)
+    sock = connect_radio(sync, "rig", 14_125_000)
+
+    sync._fd_map[sock.fileno()] = "rig"
+    sync.radio["rig"]["poll_mask"] = select.POLLIN
+
+    assert sync._queue_set("rig", 14_200_000) is True
+    sync._send_query("rig", now=10.0)
+
+    expected_pending_mask = select.POLLIN | select.POLLOUT
+
+    assert poller.modified == [
+        (sock.fileno(), expected_pending_mask),
+        (sock.fileno(), select.POLLIN),
+    ]
+    assert sock.sent == [b"F 14200000\n"]
+    assert sync.radio["rig"]["is_busy"] == 10.0
+    assert sync.radio["rig"]["poll_mask"] == select.POLLIN
+
+
+def test_process_incoming_reenables_pollout_when_pending_output_waits():
+    sync = make_sync()
+    poller = attach_fake_poller(sync)
+    sock = DummySocket([b"14200000\n"])
+    connect_radio(sync, "rig", 14_125_000, sock=sock)
+
+    sync._fd_map[sock.fileno()] = "rig"
+    sync.radio["rig"]["poll_mask"] = select.POLLIN
+    sync.radio["rig"]["is_busy"] = 10.0
+    sync.radio["rig"]["query"] = b"f\n"
+
+    sync._process_incoming("rig", now=10.1)
+
+    expected_mask = select.POLLIN | select.POLLOUT
+
+    assert sync.radio["rig"]["is_busy"] is None
+    assert poller.modified == [(sock.fileno(), expected_mask)]
+    assert sync.radio["rig"]["poll_mask"] == expected_mask
+
+
+def test_update_poll_mask_ignores_unregistered_dummy_socket():
+    sync = make_sync()
+    poller = attach_fake_poller(sync)
+    connect_radio(sync, "rig", 14_125_000)
+
+    sync.radio["rig"]["poll_mask"] = select.POLLIN | select.POLLOUT
+
+    sync._update_poll_mask("rig")
+
+    assert poller.modified == []
+    assert sync.radio["rig"]["sock"] is not None
 
 
 def test_send_query_sends_frequency_set_and_marks_busy():
