@@ -110,6 +110,12 @@ class Display:
     @synchronized
     def draw(self, now):
         """  Build one frame and print it """
+
+        @synchronized
+        def draw(self, now):
+            """Build one frame and print it."""
+        if not self._redraw and not self._timed_redraw_due(now):
+            return
         old_base = (max(self._row_map.values()) + 1) if self._row_map else (       # Remember log base row
             2 if self.cfg.display.small_display else 4)
         new_logs = [                                                               # Check time-based deletions
@@ -367,6 +373,19 @@ class Display:
         except (AttributeError, TypeError) as e:
             print(f"PanSyncer Display log error  {e}", file=sys.stderr)
             return
+    def _timed_redraw_due(self, now):
+        """Return True if time-based UI cleanup requires a redraw."""
+        if self._logs:
+            for _, ts in self._logs:
+                if now - ts >= self.cfg.display.log_drop_time:
+                    return True
+        if self._keyboard_input.strip() and now - self._keyboard_ts >= self.cfg.display.input_drop_time:
+            return True
+        if self._mouse_input.strip() and now - self._mouse_ts >= self.cfg.display.input_drop_time:
+            return True
+        if self._knob_input.strip() and now - self._knob_ts >= self.cfg.display.input_drop_time:
+            return True
+        return False
 
     def _draw_freq(self, row, freq = None, style = ""):
         """ Draw a frequency string with unit """

@@ -122,6 +122,8 @@ class SyncManager:
                                                                                         # Poller for non-blocking I/O
         self._poller = select.poll()
         self._fd_map = {}
+        self._last_ui_state = None
+        self._last_band_freq_hz = object()
 
     # # # # # # # # #
     # # #  API  # # #
@@ -399,25 +401,37 @@ class SyncManager:
     # # # # # # # # # # # # #
 
     def _update_ui(self):
-        """Write values to user interface periodically"""
+        """Write values to user interface when display state changed."""
         if self.display is None:
             return
         try:
-            self.display.set_sync_mode(self.sync_on)
+            updates = []
+            ui_state = [self.sync_on]
             for role, rdo in self.radio.items():
-                if rdo['sock'] is None or not rdo['connected']:
+                connected = rdo['sock'] is not None and rdo['connected']
+                if not connected:
                     freq = None
-                    sock = None
+                    setter_connected = None
                 else:
-                    sock = rdo['sock']
+                    setter_connected = rdo['sock']
                     base = rdo['freq_cur']
-                    # We keep the LO_Freq in the gqrx['freq_cur'], but we convert it to main frequency for display
                     if self.ifreq is not None and base is not None and role == 'gqrx':
                         freq = base + self.ifreq_hz
                     else:
                         freq = base
+                ui_state.append((role, freq, connected))
+                updates.append((role, freq, setter_connected))
+            ui_state = tuple(ui_state)
+            if ui_state == self._last_ui_state:
+                return
+
+            self.display.set_sync_mode(self.sync_on)
+
+            for role, freq, setter_connected in updates:
                 setter = getattr(self.display, f"set_{role}")
-                setter(freq, sock)
+                setter(freq, setter_connected)
+            self._last_ui_state = ui_state
+
         except (AttributeError, TypeError, KeyError) as e:
             self.logger.log(f"[DISPLAY ERROR] {e}", "CRITICAL")
 
@@ -434,10 +448,13 @@ class SyncManager:
                 self.sync_on = True
 
     def _update_band(self):
-        """Update band information."""
+        """Update band information when the displayed frequency changed."""
         if self.display is None or self.cfg.display.small_display:
             return
         freq_hz = self.get_frequency()
+        if freq_hz == self._last_band_freq_hz:
+            return
+        self._last_band_freq_hz = freq_hz
         if freq_hz is None:
             self.display.set_band_name("")
             return
