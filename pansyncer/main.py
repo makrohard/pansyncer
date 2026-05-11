@@ -20,7 +20,7 @@ from pansyncer.display import Display
 from pansyncer.sync import SyncManager
 from pansyncer.logger import Logger
 
-VERSION = "0.6.5"
+VERSION = "0.6.6"
 
 class PanSyncer:
     """ PanSyncer Application Class"""

@@ -1,4 +1,13 @@
 # Changelog
+
+## 0.6.6
+Performance optimisations:
+  - Avoid redundant UI and band updates
+  - Optimize mouse watchdog discovery
+  - Use POLLOUT only for pending socket writes
+  - Cache next due reconnect scheduler time
+  - Avoid building debug logs in sync hotpaths
+
 ## 0.6.5
 - Fix mouse focus-out busy loop by always draining mouse FDs
 
