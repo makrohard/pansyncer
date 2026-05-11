@@ -74,7 +74,7 @@ slow_threshold             = 1.0                        # Threshold for consider
 max_workers                = 4                          # Maximum number of reconnect threads
 
 [input_hotplug]
-enabled                    = true                       # Use Linux inotify for /dev/input hotplug events
+enabled                    = true                       # Use inotify for hotplug. We have (slower) a watchdog fallback.
 path                       = "/dev/input"               # Directory containing evdev event nodes
 watchdog_interval          = 3.0                        # Slow fallback check for knob/mouse reconnects (seconds)
 watchdog_backoff_cap       = 9.0                        # Maximum fallback reconnect interval (seconds)
