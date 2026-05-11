@@ -57,7 +57,15 @@ class ReconnectScheduler:
         self.generation = 0
         self._result_queue = Queue()
         self._shutdown = False
+        self._next_due = float("inf")
 
+    def _recompute_next_due(self):
+        """Cache the earliest next_run time across all tasks."""
+        if not self.tasks:
+            self._next_due = float("inf")
+            return
+
+        self._next_due = min(rec.next_run for rec in self.tasks.values())
                                                                                            ##### Registration / Removal
     def register(self, fn, tag = None, backoff = True, run_immediately = True,
                  interval = None, backoff_cap = None):
@@ -84,7 +92,9 @@ class ReconnectScheduler:
                 rec.interval = actual_interval
             if run_immediately:
                 rec.next_run = now
+            self._recompute_next_due()
             return
+
         self.tasks[fn] = TaskRecord(
             fn=fn,
             tag=tag,
@@ -95,6 +105,7 @@ class ReconnectScheduler:
             generation=self.generation,
             backoff_cap=actual_backoff_cap,
         )
+        self._recompute_next_due()
         self.logger.log(
             f"Scheduler: registered task tag:{tag} interval:{actual_interval} generation:{self.generation}", "DEBUG")
 
@@ -115,6 +126,7 @@ class ReconnectScheduler:
                 count += 1
 
         if count:
+            self._recompute_next_due()
             self.logger.log(
                 "Scheduler: triggered %d task(s) for tag '%s' in %.2fs"
                 % (count, tag, max(0.0, delay)),
@@ -129,6 +141,7 @@ class ReconnectScheduler:
                      if rec.tag == tag or rec.tag.startswith(tag)]
         for fn in to_remove:
             self.tasks.pop(fn, None)
+        self._recompute_next_due()
         self.logger.log("Scheduler: unregistered %d task(s) for tag '%s'" % (len(to_remove), tag), "DEBUG")
 
                                                                                            ##### Main Loop Tick
@@ -136,14 +149,30 @@ class ReconnectScheduler:
         if self._shutdown:
             return
 
-        self._drain_results()
-
+        results_pending = not self._result_queue.empty()
         now = time.monotonic()
+
+        if not results_pending and now < self._next_due:
+            return
+
+        if results_pending:
+            self._drain_results()
+            now = time.monotonic()
+
+            if now < self._next_due:
+                return
+
+        changed = False
+
         for rec in list(self.tasks.values()):
             if now >= rec.next_run:
                 if rec.future is None or rec.future.done():
                     rec.next_run = now + rec.interval
                     rec.future = self.executor.submit(self._worker_wrapper, rec.fn, rec.generation)
+                    changed = True
+
+        if changed:
+            self._recompute_next_due()
 
                                                                                            ##### Worker and result
     def _worker_wrapper(self, fn, generation):
@@ -198,6 +227,8 @@ class ReconnectScheduler:
             if rec.next_run < target:
                 rec.next_run = target
             rec.future = None
+
+        self._recompute_next_due()
                                                                                            ##### Diagnostics
     def debug_status(self):
         now = time.monotonic()

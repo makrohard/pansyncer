@@ -147,6 +147,7 @@ def test_failed_task_uses_additive_backoff_sequence_and_cap():
         assert scheduler.tasks[task].interval == 3.0
 
         scheduler.tasks[task].next_run = time.monotonic()
+        scheduler._recompute_next_due()
 
         drive_until(
             scheduler,
@@ -156,6 +157,7 @@ def test_failed_task_uses_additive_backoff_sequence_and_cap():
         assert scheduler.tasks[task].interval == 4.0
 
         scheduler.tasks[task].next_run = time.monotonic()
+        scheduler._recompute_next_due()
 
         drive_until(
             scheduler,
@@ -436,6 +438,7 @@ def test_tick_drains_old_result_before_starting_new_worker():
 
         rec.future = old_future
         rec.next_run = time.monotonic() - 1.0
+        scheduler._recompute_next_due()
         scheduler._result_queue.put((task, True, 0.001, rec.generation))
         scheduler.executor = FakeExecutor(new_future)
 
@@ -446,10 +449,75 @@ def test_tick_drains_old_result_before_starting_new_worker():
         assert scheduler.tasks[task].next_run > time.monotonic()
 
         scheduler.tasks[task].next_run = time.monotonic() - 1.0
+        scheduler._recompute_next_due()
 
         scheduler.tick()
 
         assert len(scheduler.executor.submitted) == 1
         assert scheduler.tasks[task].future is new_future
+    finally:
+        scheduler.shutdown(wait=True)
+
+def test_tick_returns_early_when_no_task_is_due_and_no_results_wait():
+    scheduler, _ = make_scheduler(reconnect_interval=10.0)
+    calls = []
+
+    def task():
+        calls.append("run")
+        return True
+
+    try:
+        scheduler.register(task, tag="rig", run_immediately=False)
+        scheduler.executor = FakeExecutor(BlockingFuture())
+
+        scheduler.tick()
+
+        assert calls == []
+        assert scheduler.executor.submitted == []
+        assert scheduler._next_due == scheduler.tasks[task].next_run
+        assert scheduler._next_due > time.monotonic()
+    finally:
+        scheduler.shutdown(wait=True)
+
+def test_trigger_tag_updates_cached_next_due():
+    scheduler, _ = make_scheduler(reconnect_interval=10.0)
+
+    def task():
+        return True
+
+    try:
+        scheduler.register(task, tag="mouse", run_immediately=False)
+        old_next_due = scheduler._next_due
+
+        assert scheduler.trigger_tag("mouse", delay=0.0) == 1
+
+        assert scheduler._next_due <= old_next_due
+        assert scheduler._next_due == scheduler.tasks[task].next_run
+        assert scheduler._next_due <= time.monotonic() + 0.1
+    finally:
+        scheduler.shutdown(wait=True)
+
+def test_tick_drains_result_and_updates_cached_next_due_without_starting_new_worker():
+    scheduler, _ = make_scheduler(reconnect_interval=10.0)
+
+    def task():
+        return True
+
+    try:
+        scheduler.register(task, tag="rig", run_immediately=True)
+
+        rec = scheduler.tasks[task]
+        rec.future = ImmediateDoneFuture()
+        rec.next_run = time.monotonic() - 1.0
+        scheduler._recompute_next_due()
+        scheduler._result_queue.put((task, True, 0.001, rec.generation))
+        scheduler.executor = FakeExecutor(BlockingFuture())
+
+        scheduler.tick()
+
+        assert scheduler.executor.submitted == []
+        assert scheduler.tasks[task].future is None
+        assert scheduler._next_due == scheduler.tasks[task].next_run
+        assert scheduler._next_due > time.monotonic()
     finally:
         scheduler.shutdown(wait=True)
