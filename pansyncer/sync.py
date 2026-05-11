@@ -76,6 +76,7 @@ class SyncManager:
                 'is_busy'                     : None,
                 'send_timestamp'              : 0.0,
                 'timeout'                     : self.cfg.sync.rig_timeout,
+                'poll_mask'                   : None,
                 'recv_buf'                    : bytearray(),
                 'query'                       : None,
                 'events'                      : []
@@ -96,6 +97,7 @@ class SyncManager:
                 'is_busy'                     : None,
                 'send_timestamp'              : 0.0,
                 'timeout'                     : self.cfg.sync.gqrx_timeout,
+                'poll_mask'                   : None,
                 'recv_buf'                    : bytearray(),
                 'query'                       : None,
                 'events'                      : []
@@ -162,22 +164,29 @@ class SyncManager:
 
         for role, rdo in self.radio.items():                                            ##### Queue frequency queries
 
-            if (rdo['freq_cur'] is None
+            if (rdo['freq_cur'] is None                                                 # Ensure that we have a freq
                     and rdo['freq_queued'] is None
                     and rdo['query'] is None
-                    and rdo['is_busy'] is None):                                        # Ensure that we have a freq
+                    and rdo['is_busy'] is None):
                 if self.ifreq is not None and role == 'gqrx':
                     rdo['query'] = b"LNB_LO\n"
                 else:
-                    rdo['query'] = b"f\n"
-            self._freq_query(role, now)                                                 # Query frequency
+                    rdo['query'] = b"f\n"                                               # Query frequency
+                self._update_poll_mask(role)
+
+            self._freq_query(role, now)
 
         for role, rdo in self.radio.items():                                            ##### Send commands
             evs = rdo.get('events', [])
-            if any(flag & select.POLLOUT for _, flag in evs):                           # Write outgoing data
-                if not self._check_connect(role):                                       # Check connect result
-                    continue
-                self._send_query(role, now)
+            writable = any(flag & select.POLLOUT for _, flag in evs)                    # Write outgoing data
+            if writable and not self._check_connect(role):                              # Check connect result
+                continue
+            if not rdo['connected']:
+                continue
+            if not self._has_pending_output(role):
+                self._update_poll_mask(role)
+                continue
+            self._send_query(role, now)
                                                                                         ##### Once per tick actions
         self._log_rig_change(self.cfg.sync.wait_before_log_rigfreq, now)                # Log Frequency
         self._update_band()                                                             # Update band name
@@ -321,6 +330,7 @@ class SyncManager:
                 'freq_queued_is_lo'           : False,
                 'is_busy'                     : None,
                 'recv_buf'                    : bytearray(),
+                'poll_mask'                   : None,
                 'query'                       : None,
                 'events'                      : []
             })
@@ -384,6 +394,7 @@ class SyncManager:
                 'freq_queued_is_lo'           : False,
                 'is_busy'                     : None,
                 'send_timestamp'              : 0.0,
+                'poll_mask'                   : None,
                 'recv_buf'                    : bytearray(),
                 'query'                       : None,
                 'events'                      : []
@@ -501,12 +512,14 @@ class SyncManager:
             rdo['freq_queued'] = None
             rdo['freq_queued_is_lo'] = False
             rdo['query'] = None                                                       # Drop pending query
+            self._update_poll_mask(role)
             return True
 
         rdo['freq_queued'] = freq_hz
         rdo['freq_queued_is_lo'] = is_lo
         rdo['query'] = None                                                           # Set overwrites query
         self.logger.log(f"{role.upper()} SET QUEUED {freq_hz}", "DEBUG")
+        self._update_poll_mask(role)
         return True
 
     def _apply_sync_actions(self):
@@ -586,9 +599,10 @@ class SyncManager:
                 or self.ifreq is not None and role == 'gqrx'):                          # No freq query to gqrx in ifreq mode.
             return
 
-        if rdo['query'] is None:                                                        # FreqQueryCmd, not overwriting
+        if rdo['query'] is None:                                                         # FreqQueryCmd, not overwriting
             self.logger.log(f"{role.upper()} FREQ QUERY CMD", "DEBUG")
             rdo['query'] = b"f\n"
+            self._update_poll_mask(role)
 
     def _freq_check_timeout(self, role, now):
         """Check query-reply-timeouts."""
@@ -606,6 +620,7 @@ class SyncManager:
 
         rdo['recv_buf'] = bytearray()                                                   # Drop stale partial data
         rdo['is_busy'] = None
+        self._update_poll_mask(role)
 
     def _send_query(self, role, now):
         """Send pending queries for the specified role when its socket is writable."""
@@ -629,6 +644,7 @@ class SyncManager:
         try:                                                                            # Send to Socket
             rdo['sock'].sendall(query)
         except BlockingIOError:
+            self._update_poll_mask(role)
             return
         except OSError as e:
             self.logger.log(f"{role.upper()} SEND ERROR {e}", "DEBUG")
@@ -644,6 +660,7 @@ class SyncManager:
         rdo['is_busy'] = now                                                            # Set busy flag
         rdo['send_timestamp'] = now
         rdo['query'] = None
+        self._update_poll_mask(role)
 
     def _process_incoming(self, role, now):
         """Receive data from Rig/Gqrx and buffer messages."""
@@ -736,6 +753,7 @@ class SyncManager:
                     rdo['freq_sent'] = None
         rdo['recv_buf'] = bytearray(incomplete)                                         # Preserve incomplete tail
         rdo['is_busy'] = None                                                           # Clear Busy
+        self._update_poll_mask(role)                                                    # Activate POLLOUT
 
     # # # # # # # # # # # # # #
     # # # Socket Handling # # #
@@ -762,6 +780,7 @@ class SyncManager:
             return False
         rdo['connected'] = True
         self.logger.log(f"{role.upper()} CONNECTED", "DEBUG")
+        self._update_poll_mask(role)
         return True
 
     @staticmethod
@@ -776,8 +795,10 @@ class SyncManager:
     def _register_socket(self, role, sock):
         """Register a socket with the poller."""
         fd = sock.fileno()
-        self._poller.register(fd, select.POLLIN | select.POLLOUT)
+        mask = select.POLLIN | select.POLLOUT
+        self._poller.register(fd, mask)
         self._fd_map[fd] = role
+        self.radio[role]['poll_mask'] = mask
 
     def _cleanup_socket(self, role):
         """Unregister, close, clear buffer, disable sync."""
@@ -806,9 +827,67 @@ class SyncManager:
             'freq_queued'                 : None,
             'freq_queued_is_lo'           : False,
             'freq_processed'              : rdo['freq_cur'],
+            'poll_mask'                   : None,
             'events'                      : []
         })
         self.sync_on = False
+
+    # # # # # # # # # # #
+    # # #  POLLOUT  # # #
+    # # # # # # # # # # #
+
+    def _has_pending_output(self, role):
+        """Return True if a command is waiting to be sent."""
+        rdo = self.radio[role]
+        return rdo['freq_queued'] is not None or rdo['query'] is not None
+
+    def _needs_pollout(self, role):
+        """Return True if this socket should currently be watched for writability."""
+        rdo = self.radio[role]
+        if rdo['sock'] is None or not self.devices.enabled(role):
+            return False
+        if not rdo['connected']:
+            return True
+        if rdo['is_busy'] is not None:
+            return False
+        return self._has_pending_output(role)
+
+    def _wanted_poll_mask(self, role):
+        """Return poll mask for the current socket state."""
+        mask = select.POLLIN
+        if self._needs_pollout(role):
+            mask |= select.POLLOUT
+        return mask
+
+    def _update_poll_mask(self, role):
+        """Update poll mask for an already registered socket."""
+        rdo = self.radio[role]
+        sock = rdo['sock']
+        if sock is None:
+            return
+        try:
+            fd = sock.fileno()
+        except AttributeError:
+            return
+        except OSError:
+            self._cleanup_socket(role)
+            return
+        if fd < 0:
+            self._cleanup_socket(role)
+            return
+        if self._fd_map.get(fd) != role:
+            return
+        mask = self._wanted_poll_mask(role)
+        if rdo.get('poll_mask') == mask:
+            return
+        try:
+            self._poller.modify(fd, mask)
+        except (OSError, ValueError, KeyError) as e:
+            self.logger.log(f"{role.upper()} POLL MODIFY ERROR {e}", "DEBUG")
+            self._cleanup_socket(role)
+            return
+        rdo['poll_mask'] = mask
+
 
     # # # # # # # # # # # # # # # # #
     # # #   Frequency Logging   # # #
