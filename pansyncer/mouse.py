@@ -175,11 +175,6 @@ class MouseState:
         self._discover_devices(now=now)
         return bool(self.mice)
 
-    def get_fds(self):
-        """Return a list of file descriptors to poll."""
-        return [dev.fd for dev in self.mice]
-
-
 
     def get_fds(self):
         """Return a list of file descriptors to poll."""

@@ -402,3 +402,19 @@ unknown_field = 123
     )
 
     assert_config_error_2(config_path, capsys)
+
+
+def test_input_hotplug_mouse_watchdog_enabled_from_toml(tmp_path):
+    config_file = tmp_path / "pansyncer.toml"
+    config_file.write_text(
+        """
+[input_hotplug]
+mouse_watchdog_enabled = false
+""",
+        encoding="utf-8",
+    )
+
+    args = make_args(config_file=str(config_file))
+    cfg = Config.from_args_and_file(args)
+
+    assert cfg.input_hotplug.mouse_watchdog_enabled is False
