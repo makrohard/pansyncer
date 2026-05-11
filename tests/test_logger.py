@@ -140,3 +140,23 @@ def test_logger_invalid_log_level_falls_back_to_info():
         assert display.lines == ["[INFO] still works"]
     finally:
         logger.close()
+
+def test_logger_is_enabled_returns_true_for_active_level():
+    logger = Logger("test_logger_is_enabled_true", level="DEBUG")
+
+    try:
+        assert logger.is_enabled("DEBUG") is True
+        assert logger.is_enabled("INFO") is True
+    finally:
+        logger.close()
+
+
+def test_logger_is_enabled_returns_false_for_inactive_level():
+    logger = Logger("test_logger_is_enabled_false", level="WARNING")
+
+    try:
+        assert logger.is_enabled("DEBUG") is False
+        assert logger.is_enabled("INFO") is False
+        assert logger.is_enabled("WARNING") is True
+    finally:
+        logger.close()
