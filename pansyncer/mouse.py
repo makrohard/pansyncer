@@ -108,15 +108,25 @@ class MouseState:
         """Return a list of file descriptors to poll."""
         return [dev.fd for dev in self.mice]
 
-    def handle_event(self, fd, sync, step, now):
-        """Process all pending wheel or middle-click events for the given fd."""
+
+    def handle_event(self, fd, sync, step, now, active=True):
+        """Drain pending mouse events for the given fd and dispatch relevant actions when active."""
         dev = next((d for d in self.mice if d.fd == fd), None)
         if not dev:
-            return
+            return False
+
+        had_action = False
+
         try:
             for event in dev.read():
+                if event.type == evdev.ecodes.EV_SYN:
+                    continue
+
                 if event.type == evdev.ecodes.EV_REL and event.code == evdev.ecodes.REL_WHEEL:
                     if event.value == 0:
+                        continue
+
+                    if not active:
                         continue
 
                     self.last_scroll_time = now
@@ -128,12 +138,26 @@ class MouseState:
                         sync.nudge(-step.get_step())
                         if self.display:
                             self.display.set_mouse_input("DWN")
-                elif event.type == evdev.ecodes.EV_KEY and event.code == evdev.ecodes.BTN_MIDDLE and event.value == 1:
+
+                    had_action = True
+
+                elif (
+                    event.type == evdev.ecodes.EV_KEY
+                    and event.code == evdev.ecodes.BTN_MIDDLE
+                    and event.value == 1
+                ):
+                    if not active:
+                        continue
+
                     step.next_step()
                     if self.display:
                         self.display.set_step_value(step.get_step())
-                    if self.display:
                         self.display.set_mouse_input("STP")
+
+                    had_action = True
+
+            return had_action
+
         except OSError as e:
             self.logger.log(f"Mouse events {e}", "ERROR")
             try:
@@ -145,3 +169,4 @@ class MouseState:
             if self.display:
                 self.display.set_mouse(bool(self.mice))
             self.logger.log(f"Mouse disconnected: {dev.name}", "INFO")
+            return False

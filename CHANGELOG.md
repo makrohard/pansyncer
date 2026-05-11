@@ -1,4 +1,6 @@
 # Changelog
+## 0.6.5
+- Fix mouse focus-out busy loop by always draining mouse FDs
 
 ## 0.6.4
 - Added evdev hotplug handling for knob/mouse using inotify

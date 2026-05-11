@@ -86,35 +86,62 @@ class KnobController:
         return self.dev.fd if self.dev else None
 
     def handle_events(self, sync, step):
-        """Read pending events and dispatch mapped actions."""
+        """Drain pending knob events and dispatch mapped actions."""
         if not self.dev or not self.active_cfg:
-            return
+            return False
+
+        had_action = False
 
         try:
-            for event in self.dev.read():
-                if event.type != ecodes.EV_KEY or event.value != 1:
-                    continue
+            for _ in range(32):
+                try:
+                    events = list(self.dev.read())
+                except BlockingIOError:
+                    break
 
-                if event.code == self.active_cfg.key_up:
-                    sync.nudge(step.get_step())
-                    if self.display:
-                        self.display.set_step_value(step.get_step())
-                    if self.display:
-                        self.display.set_knob_input("UP ")
+                if not events:
+                    break
 
-                elif event.code == self.active_cfg.key_down:
-                    sync.nudge(-step.get_step())
-                    if self.display:
-                        self.display.set_step_value(step.get_step())
-                    if self.display:
-                        self.display.set_knob_input("DWN")
+                for event in events:
+                    if event.type == ecodes.EV_SYN:
+                        continue
 
-                elif event.code == self.active_cfg.key_step:
-                    step.next_step()
-                    if self.display:
-                        self.display.set_step_value(step.get_step())
-                    if self.display:
-                        self.display.set_knob_input("STP")
+                    if event.type != ecodes.EV_KEY:
+                        continue
+
+                    if event.value != 1:
+                        continue
+
+                    if event.code == self.active_cfg.key_up:
+                        sync.nudge(step.get_step())
+                        if self.display:
+                            self.display.set_step_value(step.get_step())
+                            self.display.set_knob_input("UP ")
+
+                        had_action = True
+
+                    elif event.code == self.active_cfg.key_down:
+                        sync.nudge(-step.get_step())
+                        if self.display:
+                            self.display.set_step_value(step.get_step())
+                            self.display.set_knob_input("DWN")
+
+                        had_action = True
+
+                    elif event.code == self.active_cfg.key_step:
+                        step.next_step()
+                        if self.display:
+                            self.display.set_step_value(step.get_step())
+                            self.display.set_knob_input("STP")
+
+                        had_action = True
+
+            return had_action
+
+        except (OSError, IOError, ValueError) as e:
+            self.logger.log(f"Failed reading knob events: {e}", "WARNING")
+            self.disconnect()
+            return False
 
         except (OSError, IOError, ValueError) as e:                                    # On error, fully reset connection
             self.logger.log(f"Failed reading knob events: {e}", "WARNING")

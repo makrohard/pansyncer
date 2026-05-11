@@ -226,9 +226,10 @@ class DeviceHandler:
                 except (OSError, ValueError) as e:
                     self.logger.log(f'knob handler error: {e}', 'ERROR')
                     self._refresh_knob_connected('handler error', controller=knob)
-            elif mouse and fd in mouse_fds and (self.keyboard.focused if self.keyboard else True):
+            elif mouse and fd in mouse_fds:
                 try:
-                    mouse.handle_event(fd, self.sync, self.step, now)
+                    mouse_active = self.keyboard.focused if self.keyboard else True
+                    mouse.handle_event(fd, self.sync, self.step, now, active=mouse_active)
                 except (OSError, ValueError) as e:
                     self.logger.log(f'mouse handler error: {e}', 'ERROR')
                     self._refresh_mouse_connected('handler error', controller=mouse)

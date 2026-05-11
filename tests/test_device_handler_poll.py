@@ -238,7 +238,8 @@ def test_poll_inputs_refreshes_mouse_after_handler_error(monkeypatch):
         def get_fds(self):
             return [11]
 
-        def handle_event(self, fd, sync, step, now):
+        def handle_event(self, fd, sync, step, now, active=True):
+            assert active is True
             raise ValueError("mouse disappeared while reading")
 
         def refresh(self):
@@ -254,6 +255,63 @@ def test_poll_inputs_refreshes_mouse_after_handler_error(monkeypatch):
     assert refreshes == ["mouse"]
     assert handler.devices.enabled("mouse") is True
 
+def test_poll_inputs_drains_mouse_when_keyboard_unfocused(monkeypatch):
+    handler = make_handler_without_devices()
+    handler.devices._devices.update({"mouse"})
+
+    calls = []
+
+    class FakeKeyboard:
+        focused = False
+
+    class FakeMouse:
+        def get_fds(self):
+            return [11]
+
+        def handle_event(self, fd, sync, step, now, active=True):
+            calls.append((fd, now, active))
+
+        def refresh(self):
+            raise AssertionError("mouse must not be refreshed when drain succeeds")
+
+    handler.keyboard = FakeKeyboard()
+    handler._mouse = FakeMouse()
+
+    monkeypatch.setattr(select, "select", lambda *args, **kwargs: ([11], [], []))
+
+    assert handler._poll_inputs(now=10.0) is False
+
+    assert calls == [(11, 10.0, False)]
+    assert handler.devices.enabled("mouse") is True
+
+def test_poll_inputs_dispatches_mouse_active_when_keyboard_focused(monkeypatch):
+    handler = make_handler_without_devices()
+    handler.devices._devices.update({"mouse"})
+
+    calls = []
+
+    class FakeKeyboard:
+        focused = True
+
+    class FakeMouse:
+        def get_fds(self):
+            return [11]
+
+        def handle_event(self, fd, sync, step, now, active=True):
+            calls.append((fd, now, active))
+
+        def refresh(self):
+            raise AssertionError("mouse must not be refreshed when handler succeeds")
+
+    handler.keyboard = FakeKeyboard()
+    handler._mouse = FakeMouse()
+
+    monkeypatch.setattr(select, "select", lambda *args, **kwargs: ([11], [], []))
+
+    assert handler._poll_inputs(now=10.0) is False
+
+    assert calls == [(11, 10.0, True)]
+    assert handler.devices.enabled("mouse") is True
 
 def test_poll_inputs_does_not_refresh_replaced_knob_controller(monkeypatch):
     handler = make_handler_without_devices()
@@ -326,7 +384,7 @@ def test_poll_inputs_handles_evdev_hotplug_before_stale_input_dispatch(monkeypat
             mouse_refreshes.append("mouse")
             return True
 
-        def handle_event(self, fd, sync, step, now):
+        def handle_event(self, fd, sync, step, now, active=True):
             raise AssertionError("stale mouse fd should not be dispatched after hotplug")
 
     handler._input_hotplug = FakeHotplug()
