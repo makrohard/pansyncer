@@ -1,3 +1,5 @@
+[Deutsche Version](README_DE.md)
+
 # PanSyncer
 
 PanSyncer is a Linux command-line tool with a terminal UI for synchronizing radios, SDR receivers and panadapter setups.
@@ -159,26 +161,28 @@ On other distros, the package is usually named `hamlib`.
 
 * To install:
   * Install `pipx`, if it is not already available
-  * Make sure the `pipx` command path is available in the shell
-  * Clone the repository
-  * Enter its folder
-  * Install PanSyncer with `pipx`
-
       ```bash
       # Debian, Ubuntu, Raspberry Pi OS:
       sudo apt install pipx
-
+      ```
+      ```bash
       # Fedora:
       sudo dnf install pipx
-
+      ```
+  * Make sure the `pipx` command path is available in the shell
+      ```bash
       pipx ensurepath
-
+      ```
+  * Clone the repository
+  * Enter its folder
+  * Install PanSyncer with `pipx`
+      ```bash
       git clone https://github.com/makrohard/pansyncer.git
       cd pansyncer
       pipx install .
       ```
 
-  * Run
+  * **Run**
 
       ```bash
       pansyncer --help
