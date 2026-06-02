@@ -42,7 +42,7 @@ For Ubuntu, install `libhamlib-utils`.
   ```bash
   git clone https://github.com/makrohard/pansyncer.git
   cd pansyncer
-  pip install --user .
+  pipx install .
   ```
 To run without installation, see: [Installation](#installation)
 
@@ -158,30 +158,45 @@ On other distros, the package is usually named `hamlib`.
 ### Installation
 
 * To install:
-  * Clone the repo 
-  * Enter its folder  
-  * Install to ~/.local/bin (make sure that's in your PATH)  
+  * Install `pipx`, if it is not already available
+  * Make sure the `pipx` command path is available in the shell
+  * Clone the repository
+  * Enter its folder
+  * Install PanSyncer with `pipx`
 
       ```bash
+      # Debian, Ubuntu, Raspberry Pi OS:
+      sudo apt install pipx
+
+      # Fedora:
+      sudo dnf install pipx
+
+      pipx ensurepath
+
       git clone https://github.com/makrohard/pansyncer.git
       cd pansyncer
-      pip install --user .
-      ```  
+      pipx install .
+      ```
+
   * Run
+
       ```bash
       pansyncer --help
       ```
 
-      Uninstall with: `pip uninstall pansyncer`
-  
+      Uninstall with:
 
-* Alternatively you can run the script without installation:
-  * Clone the repo
+      ```bash
+      pipx uninstall pansyncer
+      ```
+
+* Alternatively, the script can be run without installation:
+  * Clone the repository
   * Enter its folder
-  * Create python virtual environment
-  * Activate virtual environment
-  * Install requirements
-  * Run PanSyncer as module
+  * Create a Python virtual environment
+  * Activate the virtual environment
+  * Install the requirements
+  * Run PanSyncer as a module
 
       ```bash
       git clone https://github.com/makrohard/pansyncer.git
@@ -191,7 +206,9 @@ On other distros, the package is usually named `hamlib`.
       pip install -r requirements.txt
       python -m pansyncer.main --help
       ```
-  * Just remember, that you will have to activate the venv manually in each shell, before starting PanSyncer:
+
+  * The virtual environment has to be activated manually in each shell before starting PanSyncer:
+
       ```bash
       source .venv/bin/activate
       python -m pansyncer.main --help
