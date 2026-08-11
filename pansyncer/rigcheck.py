@@ -19,6 +19,7 @@ class RigCheckConfig:
     """Default configuration for RigChecker."""
     hamlib_command: str = "rigctld -m 4 -r 127.0.0.1:12345 -t 4532"
     hamlib_remote_ip: str = "127.0.0.1"
+    restart_fail_limit: int = 3                     # restart own rigctld after this many failed checks (0 = off)
     log_level: str = "INFO"
     logfile_path: Optional[str] = None
 
@@ -32,6 +33,7 @@ class RigChecker:
         self.auto_start = auto_start
         self._proc = None
         self._sock = None
+        self._fail_count = 0
         self.rig_freq = None
         self.logger = Logger(name=__name__,
                              display=self.display,
@@ -39,6 +41,15 @@ class RigChecker:
                              logfile_path=self.cfg.rigcheck.logfile_path)
 
     def check_rig(self):
+        """Run one connectivity check and track consecutive failures for rigctld restart."""
+        ok = self._check_rig_once()
+        if ok:
+            self._fail_count = 0
+        else:
+            self._note_failure()
+        return ok
+
+    def _check_rig_once(self):
         """
         Rig connectivity check. Opens a separate socket to rigctld and requests frequency.
         Integer response is interpreted as "rig alive". FLrig may respond freq, even if RIG is not connected.
@@ -86,6 +97,19 @@ class RigChecker:
             self.rig_freq = None
             if self.display: self.display.set_rig_con(False)
             return False
+
+    def _note_failure(self):
+        """Restart our own rigctld after repeated failed checks (e.g. its backend was restarted)."""
+        limit = self.cfg.rigcheck.restart_fail_limit
+        self._fail_count += 1
+        if not limit or self._fail_count < limit:
+            return
+        if self._proc is None or self._proc.poll() is not None:
+            return
+        self.logger.log(f"Rig not responding after {self._fail_count} checks, restarting rigctld", "WARNING")
+        self._reset_socket()
+        self._stop_proc()
+        self._fail_count = 0
 
     def _ensure_rigctld(self):
         """ Start rigctld if it's not already listening on the configured port. """
@@ -199,6 +223,31 @@ class RigChecker:
         out.extend(['-t', str(port)])
         return out
 
+    def _stop_proc(self):
+        """Terminate the rigctld subprocess."""
+        if not self._proc:
+            return
+        self.logger.log("Stopping rigctld...", "INFO")
+        pid = self._proc.pid
+        try:
+            os.killpg(os.getpgid(pid), signal.SIGTERM)
+            try:
+                self._proc.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                self.logger.log("rigctld did not terminate, sending SIGKILL", "DEBUG")
+                os.killpg(os.getpgid(pid), signal.SIGKILL)
+                self._proc.wait(timeout=1)
+        except Exception as e:
+            self.logger.log(f"Error terminating rigctld (pid {pid}): {e}", "DEBUG")
+        finally:
+            for stream in (self._proc.stdout, self._proc.stderr):                       # Send EOF to kill threads
+                try:
+                    if stream:
+                        stream.close()
+                except Exception:
+                    pass
+            self._proc = None
+
     def cleanup(self):
         """ Terminate rigctld subprocess and close socket on shutdown. """
         if self._sock:                                                                  # Close socket
@@ -207,27 +256,7 @@ class RigChecker:
             except Exception:
                 pass
             self._sock = None
-        if self._proc:                                                                  # Terminate rigctld
-            self.logger.log("Stopping rigctld...", "INFO")
-            pid = self._proc.pid
-            try:
-                os.killpg(os.getpgid(pid), signal.SIGTERM)
-                try:
-                    self._proc.wait(timeout=3)
-                except subprocess.TimeoutExpired:
-                    self.logger.log("rigctld did not terminate, sending SIGKILL", "DEBUG")
-                    os.killpg(os.getpgid(pid), signal.SIGKILL)
-                    self._proc.wait(timeout=1)
-            except Exception as e:
-                self.logger.log(f"Error terminating rigctld (pid {pid}): {e}", "DEBUG")
-            finally:
-                for stream in (self._proc.stdout, self._proc.stderr):                   # Send EOF to kill threads
-                    try:
-                        if stream:
-                            stream.close()
-                    except Exception:
-                        pass
-                self._proc = None
+        self._stop_proc()
         try:
             self.logger.close()
         except Exception:

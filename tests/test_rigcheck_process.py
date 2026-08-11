@@ -186,3 +186,24 @@ def test_ensure_rigctld_rejects_invalid_hamlib_command(monkeypatch):
         assert checker._proc is None
     finally:
         checker.cleanup()
+
+def test_repeated_check_failures_restart_own_rigctld(monkeypatch):
+    cfg = make_cfg()
+    cfg.rigcheck.restart_fail_limit = 3
+    checker = RigChecker(cfg, port=cfg.sync.rig_port, display=None, auto_start=True)
+
+    proc = FakePopen(["rigctld"])
+    checker._proc = proc
+    killed = []
+    monkeypatch.setattr("os.getpgid", lambda pid: pid)
+    monkeypatch.setattr("os.killpg", lambda pgid, sig: killed.append(sig))
+    monkeypatch.setattr(checker, "_check_rig_once", lambda: False)
+
+    checker.check_rig()
+    checker.check_rig()
+    assert checker._proc is proc                     # below limit, untouched
+
+    checker.check_rig()
+    assert killed                                    # limit reached, rigctld stopped
+    assert checker._proc is None
+    assert checker._fail_count == 0
