@@ -2,6 +2,7 @@
 
 ## 0.7.0
 - Optional rigctld proxy: serve cached frequency to a logger so it never polls the rig directly and cannot stall
+- Restart own rigctld after repeated failed rig checks (recovers when its backend, e.g. FLRig, was restarted)
 
 ## 0.6.6
 Performance optimisations:

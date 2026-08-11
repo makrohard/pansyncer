@@ -322,6 +322,8 @@ Kill the process by its PID:
 ### rigctld handling
 
 By default, PanSyncer starts rigctld as a subprocess. It restarts on crashes and terminates at shutdown.
+If rigctld runs but the rig stops answering (e.g. its backend, like FLRig, was restarted), PanSyncer restarts
+its own rigctld after `restart_fail_limit` failed checks (default 3, 0 disables), so the chain recovers by itself.
 
 If you prefer to start rigctld manually, use the `--no-auto-rig` argument, or set it in the config file. 
 
