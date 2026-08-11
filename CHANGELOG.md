@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.7.0
+- Optional rigctld proxy: serve cached frequency to a logger so it never polls the rig directly and cannot stall
+
 ## 0.6.6
 Performance optimisations:
   - Avoid redundant UI and band updates

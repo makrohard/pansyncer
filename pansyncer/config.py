@@ -15,6 +15,7 @@ from pansyncer.knob import KnobConfig
 from pansyncer.rigcheck import RigCheckConfig
 from pansyncer.reconnect_scheduler import SchedulerConfig
 from pansyncer.evdev_hotplug import InputHotplugConfig
+from pansyncer.proxy import ProxyConfig
 from pansyncer.bands import Band, DEFAULT_BANDS, normalize_bands
 
 @dataclass
@@ -37,7 +38,8 @@ class Config:
                  knob=None,
                  rigcheck=None,
                  reconnect_scheduler=None,
-                 input_hotplug=None):
+                 input_hotplug=None,
+                 proxy=None):
         self.main = main or MainConfig()
         self.sync = sync or SyncConfig()
         self.devices = devices or DeviceRegisterConfig()
@@ -46,6 +48,7 @@ class Config:
         self.rigcheck = rigcheck or RigCheckConfig()
         self.reconnect_scheduler = reconnect_scheduler or SchedulerConfig()
         self.input_hotplug = input_hotplug or InputHotplugConfig()
+        self.proxy = proxy or ProxyConfig()
         self.bands = list(DEFAULT_BANDS)
 
     @staticmethod
@@ -102,7 +105,7 @@ class Config:
             raise SystemExit(2) from e
 
                                                                                         # overlay file data
-        for section_name in ('main', 'sync', 'devices','display','rigcheck', 'reconnect_scheduler','input_hotplug',):
+        for section_name in ('main', 'sync', 'devices','display','rigcheck', 'reconnect_scheduler','input_hotplug','proxy',):
             section_data = data.get(section_name, {})
             if isinstance(section_data, dict):
                 section_obj = getattr(cfg, section_name)
@@ -142,5 +145,8 @@ class Config:
         if args.devices is not None:
             map_ = DeviceRegisterConfig().device_map
             cfg.devices.enabled = [map_.get(d, d) for d in args.devices]
+
+        if getattr(args, "proxy", None):                                                # --proxy enables the proxy
+            cfg.proxy.enabled = True
 
         return cfg

@@ -18,9 +18,10 @@ from pansyncer.device_handler import DeviceHandler
 from pansyncer.step import StepController
 from pansyncer.display import Display
 from pansyncer.sync import SyncManager
+from pansyncer.proxy import RigctldProxy
 from pansyncer.logger import Logger
 
-VERSION = "0.6.6"
+VERSION = "0.7.0"
 
 class PanSyncer:
     """ PanSyncer Application Class"""
@@ -33,6 +34,7 @@ class PanSyncer:
         self.display = None
         self.logger = None
         self.sync = None
+        self.proxy = None
         self.device_handler = None
 
         try:
@@ -74,6 +76,8 @@ class PanSyncer:
                                     self.step,
                                     display=self.display)
 
+            self.proxy = RigctldProxy(self.cfg, self.sync, display=self.display)             # Optional rigctld proxy
+
             self.device_handler = DeviceHandler(                                            # Device handler
                 cfg = self.cfg,
                 is_tty = self.is_tty,
@@ -103,6 +107,7 @@ class PanSyncer:
                         self.display.draw(now)
                     break
                 self.sync.tick(now)
+                self.proxy.tick(now)
                 if self.display:
                     self.display.check_resize(now)
                     self.display.draw(now)
@@ -115,6 +120,7 @@ class PanSyncer:
         """Shut down sync manager and restore terminal settings."""
         device_handler = getattr(self, "device_handler", None)
         sync = getattr(self, "sync", None)
+        proxy = getattr(self, "proxy", None)
         display = getattr(self, "display", None)
         logger = getattr(self, "logger", None)
         is_tty = getattr(self, "is_tty", False)
@@ -126,6 +132,12 @@ class PanSyncer:
             except Exception as e:
                 if logger:
                     logger.log(f"device_handler shutdown error: {e}", "ERROR")
+        if proxy:
+            try:
+                proxy.shutdown()
+            except Exception as e:
+                if logger:
+                    logger.log(f"proxy shutdown error: {e}", "ERROR")
         if sync:
             try:
                 sync.shutdown()
@@ -187,6 +199,8 @@ class PanSyncer:
                   "If not specified, Direct Mode is used: Bidirectional freq-sync."))
         parser.add_argument("-n", "--no-auto-rig", action="store_true", default=None,
             help="Require rigctld already running; do not auto-start")
+        parser.add_argument("--proxy", action="store_true", default=None,
+            help="Enable the rigctld proxy (serve cached frequency to a logger)")
         parser.add_argument("-l", "--log", dest="freq_log_path", nargs="?", const="pansyncer.log",
             help="Enable frequency logging; optionally specify logfile path")
         parser.add_argument("-s","--small-display",dest="small_display",action="store_true", default=None,

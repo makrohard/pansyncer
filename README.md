@@ -88,6 +88,7 @@ To set up an unknown knob, see: [Use a USB Volume Knob as VFO Knob](#use-a-usb-v
   * [User Interface](#user-interface)
   * [Daemon mode](#daemon-mode)
   * [rigctld handling](#rigctld-handling)
+  * [rigctld proxy](#rigctld-proxy)
   * [Frequency logging](#frequency-logging)
   * [Synchronization Modes](#synchronization-modes)
     * [Direct Mode](#direct-mode)
@@ -326,6 +327,22 @@ If you prefer to start rigctld manually, use the `--no-auto-rig` argument, or se
 
 The rigctld command can be configured in the `pansyncer.toml` config file. You may want to do that.
 Default configuration is to use FLRig xmlrpc.
+
+### rigctld proxy
+
+Optional. PanSyncer can expose its own cached frequency as a small rigctld-compatible TCP server, so a logging program
+reads frequency from PanSyncer instead of polling the rig directly. When the rig briefly stalls, PanSyncer keeps
+answering with the last known frequency, so the logger does not time out and freeze.
+
+Disabled by default. Enable it with the `--proxy` argument, or in `pansyncer.toml`:
+
+    [proxy]
+    enabled = true
+    port    = 4632
+
+Then point the logging program at that port. For CQRLOG, enable "Simple Rig" in TRX control and set it to connect to a
+running rigctld on that port (do not let it start its own). Frequency sets from the logger are forwarded to the rig;
+mode is served as a fixed value.
 
 ### Frequency logging
 
