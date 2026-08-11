@@ -87,6 +87,7 @@ Zum Einrichten eines unbekannten Knopfs siehe: [Einen USB-Lautstärkeknopf als V
   * [Benutzeroberfläche](#benutzeroberfläche)
   * [Daemon-Modus](#daemon-modus)
   * [rigctld-Verwaltung](#rigctld-verwaltung)
+  * [rigctld-Proxy](#rigctld-proxy)
   * [Frequenzprotokollierung](#frequenzprotokollierung)
   * [Synchronisationsmodi](#synchronisationsmodi)
     * [Direct Mode](#direct-mode)
@@ -325,6 +326,23 @@ Konfigurationsdatei gesetzt werden.
 
 Der rigctld-Befehl kann in der Konfigurationsdatei `pansyncer.toml` angepasst werden. Die Standardkonfiguration 
 verwendet FLRig xmlrpc.
+
+### rigctld-Proxy
+
+Optional. PanSyncer kann die eigene, zwischengespeicherte Frequenz als kleiner rigctld-kompatibler TCP-Server
+bereitstellen. Ein Logging-Programm liest die Frequenz dann von PanSyncer statt das Funkgerät direkt abzufragen.
+Bleibt das Funkgerät kurzzeitig stehen, antwortet PanSyncer weiter mit der letzten bekannten Frequenz — der Logger
+läuft nicht in einen Timeout und friert nicht ein.
+
+Standardmäßig deaktiviert. Aktivierung über das Argument `--proxy` oder in `pansyncer.toml`:
+
+    [proxy]
+    enabled = true
+    port    = 4632
+
+Danach das Logging-Programm auf diesen Port zeigen lassen. Für CQRLOG: in der TRX-Steuerung "Simple Rig" aktivieren
+und mit einem laufenden rigctld auf diesem Port verbinden (nicht selbst starten lassen). Frequenz-Änderungen vom
+Logger werden an das Funkgerät weitergereicht; der Modus wird als fester Wert geliefert.
 
 ### Frequenzprotokollierung
 
