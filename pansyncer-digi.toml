@@ -182,3 +182,10 @@ target_product             = 0x5678
 key_up                     = 115
 key_down                   = 114
 key_step                   = 113
+[[knobs]]
+target_name                = "Solid State System Co.,Ltd. SSS1630 HID ONLY"    # SSS1630 USB knob (DK1AJ, issue #2)
+target_vendor              = 0x0c76
+target_product             = 0x1234
+key_up                     = 115
+key_down                   = 114
+key_step                   = 113
